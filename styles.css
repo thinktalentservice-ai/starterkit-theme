@@ -1,0 +1,197 @@
+/* Brand-independent structural CSS — resets, keyframes, animation/glow utility
+ * classes, the card-component override block, and the mesh/gradient decorative
+ * utilities. No colour lives in this file except where noted below.
+ *
+ * Load a preset sheet (`./presets/<id>.css`) alongside this one — this file
+ * reads brand tokens via `var()`, it does not define them. */
+
+/* ── Base reset ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  background-color: var(--background);
+  color: var(--fg1);
+  font-family: var(--font-body);
+}
+
+/* ── Keyframes ────────────────────────────────────────────────────────────── */
+@keyframes ib-fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes ib-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ib-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes ib-glow-pulse {
+  0%, 100% { box-shadow: var(--glow-mint); }
+  50%       { box-shadow: none; }
+}
+@keyframes ib-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-7px); }
+}
+@keyframes ib-spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Animation utility classes ───────────────────────────────────────────── */
+.animate-ib-fade-up   { animation: ib-fade-up   0.55s var(--ease-entrance) both; }
+.animate-ib-fade-in   { animation: ib-fade-in   0.45s var(--ease-entrance) both; }
+.animate-ib-scale-in  { animation: ib-scale-in  0.45s var(--ease-entrance) both; }
+.animate-ib-float     { animation: ib-float 7s ease-in-out infinite; }
+.animate-ib-glow-pulse { animation: ib-glow-pulse 2s ease-in-out infinite; }
+
+/* ── Stagger delays ───────────────────────────────────────────────────────── */
+.delay-75  { animation-delay: 0.075s; }
+.delay-150 { animation-delay: 0.150s; }
+.delay-225 { animation-delay: 0.225s; }
+.delay-300 { animation-delay: 0.300s; }
+.delay-450 { animation-delay: 0.450s; }
+
+/* ── Glass utility classes ───────────────────────────────────────────────── */
+.glass-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition: border-color 0.25s var(--ease-entrance),
+              background   0.25s var(--ease-entrance),
+              box-shadow   0.25s var(--ease-entrance),
+              transform    0.25s var(--ease-entrance);
+}
+.glass-card:hover {
+  border-color: var(--accent-border);
+  background: var(--accent-fill);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-3px);
+}
+.glass-card-dark {
+  background: var(--glass-dark-bg);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+/* ── Card component ──
+   Moved out to @devopsnext/starterkit-card-component (`.ic-card`). The `.ui-card*`
+   rules that used to live here are gone rather than kept "just in case": two
+   stylesheets claiming the same component is how a design system starts
+   disagreeing with itself. The package reads brand tokens through
+   `var(--x, <vendored default>)`, so this file is still the source of colour.
+
+   Interim override for a real bug in that package at 1.0.0: on a gradient card
+   it hard-defaults the focus ring to #fff. `outline-offset: 2px` draws that ring
+   OUTSIDE the card, on the page background — a near-invisible keyboard focus
+   indicator on a light surface, which is the one state that may never be
+   invisible. Dark mode is fine (white on a dark void reads at high contrast), so
+   only light is corrected here, and only for the gradient fills the package
+   special-cases: every other fill already derives its ring from the card's tone
+   and is left alone. Delete this block once the pin moves to the release that
+   fixes it upstream. */
+[data-mui-color-scheme="light"] .ic-card[data-fill="gradient"]:not([data-tone="neutral"]),
+[data-theme="light"] .ic-card[data-fill="gradient"]:not([data-tone="neutral"]) {
+  --ic-card-focus-ring: var(--fg1);
+}
+
+/* Label colour on the two gradients that are light enough to lose white text.
+   The package defaults `--ic-on-grad` to #fff, which is right on cobalt and
+   violet and wrong on mint and amber — see the measurements at `--on-brand-ink`.
+
+   Cobalt and violet keep white: white-on-cobalt is the design system's own
+   signature and changing it is a brand decision, not a bug fix. Cobalt's light
+   end still measures low contrast — same caveat, gradient fills are for
+   headings and short labels. */
+.ic-card[data-fill="gradient"][data-tone="mint"],
+.ic-card[data-fill="gradient"][data-tone="amber"] {
+  --ic-on-grad: var(--on-brand-ink);
+}
+
+/* Custom properties inherit, and the package's other gradient tones only read
+   `var(--ic-on-grad, #fff)` — a fallback applies to an ABSENT property, not an
+   inherited one. So a cobalt card nested inside a mint card would silently
+   inherit the ink above and draw near-black on cobalt. Every gradient tone
+   states its own answer rather than relying on the package's fallback. */
+.ic-card[data-fill="gradient"][data-tone="blue"],
+.ic-card[data-fill="gradient"][data-tone="violet"],
+.ic-card[data-fill="gradient"][data-tone="danger"] {
+  --ic-on-grad: #fff;
+}
+
+/* Light-mode mint is the one tone where the ink/white answer genuinely differs by
+   scheme, so it is the one place that overrides per scheme rather than per tone.
+
+   Ink was chosen above because it wins at almost every endpoint. Raising light
+   `--mint` for focus/text contrast pushes `--mint-dark` low enough that ink on
+   it fails, while white at those same endpoints passes body text at both. So
+   this is the scheme flip `--on-brand-ink` warns about — taken deliberately,
+   because the alternative is a measured WCAG failure rather than a stylistic
+   inconsistency.
+
+   Dark mode keeps ink: its mint ramp is far too light for white. */
+[data-mui-color-scheme="light"] .ic-card[data-fill="gradient"][data-tone="mint"],
+[data-theme="light"] .ic-card[data-fill="gradient"][data-tone="mint"] {
+  --ic-on-grad: #fff;
+}
+
+/* ── Mesh background utilities ──
+   KNOWN LIMITATION, not an oversight: these carry obsidian-specific hardcoded
+   rgba() colours (violet / mint / amber) and render the same mesh regardless of
+   which preset is active. Tokenizing them into `var()` is a real design
+   decision — is a client's brand hue supposed to bleed into a background wash,
+   or should the wash stay a fixed neutral accent? — and it is out of this
+   phase's scope, which is mechanical extraction, not a redesign. */
+.mesh-bg {
+  background-color: var(--void);
+  background-image:
+    radial-gradient(ellipse 80% 55% at 5% 15%,  rgba(124, 58, 237, 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 95% 85%, rgba(179, 211, 53, 0.12)  0%, transparent 55%),
+    radial-gradient(ellipse 45% 35% at 55% -5%, rgba(245, 158, 11, 0.07) 0%, transparent 50%);
+}
+.mesh-bg-subtle {
+  background-color: var(--background);
+  background-image:
+    radial-gradient(ellipse 60% 40% at 0% 0%,    rgba(124, 58, 237, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 35% at 100% 100%, rgba(179, 211, 53, 0.07) 0%, transparent 50%);
+}
+
+/* ── Text gradient classes ──
+   Same known limitation as the mesh utilities above: hardcoded hex stops,
+   obsidian-specific, unchanged by the active preset. */
+.text-gradient-violet {
+  background: linear-gradient(135deg, #a78bfa 0%, #7dd3fc 50%, #B3D335 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-gradient-electric {
+  background: linear-gradient(135deg, #c4b5fd 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Glow helpers ── */
+.glow-violet { box-shadow: var(--glow-violet); }
+.glow-mint   { box-shadow: var(--glow-mint); }
+.glow-amber  { box-shadow: var(--glow-amber); }
+
+/* ── Status chip base ── */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-chip);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border: 1px solid;
+}

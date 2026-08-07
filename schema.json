@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://devopsnext.dev/starterkit-theme/schema.json",
+  "title": "Brand document",
+  "description": "The tenant-facing shape this package's brand resolver consumes: an opaque tenant id, a preset choice, optional colour/shape seeds, and an optional raw token override escape hatch. LIMITATION: `preset.enum` below is a manually-kept-in-sync copy of PRESET_IDS from src/presets/index.ts — a static JSON file cannot import a TypeScript const, so a new preset added there does not automatically appear here (same category of limitation as the CHANNEL_BASE_ALIASES table in scripts/gen-token-names.mjs). LIMITATION: `overrides` keys are checked structurally (do they look like a CSS custom property name?) only — this schema cannot verify a key is an actual member of ROOT_TOKEN_NAMES, because that also requires the live TS array a static schema can't import; an unknown-but-well-formed token name passes here and is silently ignored by the CSS engine that consumes it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "preset"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque tenant identifier, defined by the caller. No format constraint beyond non-empty."
+    },
+    "preset": {
+      "type": "string",
+      "enum": ["obsidian", "meridian", "solstice", "beacon", "graphite", "atlas"],
+      "$comment": "Must be kept in sync with PRESET_IDS in src/presets/index.ts by hand. Adding or removing a preset there requires the same edit here."
+    },
+    "seeds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "6-digit hex colour, e.g. #0B5FFF."
+        },
+        "secondary": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "6-digit hex colour, e.g. #1E3A5F."
+        },
+        "intensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "radius": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "overrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "patternProperties": {
+        "^--[a-z0-9-]+$": {
+          "type": "string",
+          "description": "Any valid CSS value for this custom property — a hex colour or otherwise. Value shape is not constrained; the key's membership in ROOT_TOKEN_NAMES is not verified (see top-level description)."
+        }
+      },
+      "description": "Raw CSS custom-property escape hatch, keyed by name. Structural check only: keys must look like `--token-name`, but this schema cannot confirm the name is one the engine actually defines."
+    }
+  }
+}

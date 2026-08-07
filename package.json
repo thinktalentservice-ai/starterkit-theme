@@ -58,7 +58,11 @@
     "smoke": "node scripts/smoke.mjs",
     "gen:tokens": "node scripts/gen-token-names.mjs",
     "gen:tokens:check": "node scripts/gen-token-names.mjs --check",
-    "verify": "pnpm typecheck && pnpm gen:tokens:check && pnpm test && pnpm test:fuzz && pnpm build && pnpm smoke"
+    "gen:presets": "node scripts/gen-preset-css.mjs",
+    "gen:presets:check": "node scripts/gen-preset-css.mjs --check",
+    "brand:emit": "node scripts/brand-emit.mjs --target=cdn",
+    "publish:cdn": "node scripts/publish-cdn.mjs",
+    "verify": "pnpm typecheck && pnpm gen:tokens:check && pnpm test && pnpm test:fuzz && pnpm build && pnpm gen:presets:check && pnpm smoke"
   },
   "peerDependencies": {
     "@mui/material": ">=6",
@@ -77,6 +81,9 @@
     }
   },
   "devDependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@testing-library/react": "^16.3.2",
     "@types/culori": "^4.0.1",
     "@types/node": "^22.15.3",
     "@types/react": "^19.2.14",

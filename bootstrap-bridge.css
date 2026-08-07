@@ -1,0 +1,279 @@
+/* Bootstrap 5.3 runtime bridge — load AFTER bootstrap/dist/css/bootstrap.css (or
+ * the compiled bootstrap.scss) so these win at equal specificity, and alongside
+ * a preset sheet (`./presets/<id>.css`) that actually defines the brand tokens
+ * referenced below.
+ *
+ * Two problems, two sections.
+ *
+ * SECTION 1 repoints Bootstrap's global `--bs-*` custom properties at this
+ * package's tokens. That is plain CSS custom-property syntax already (no Sass
+ * logic), so it moves close to verbatim from the runtime bridge this replaces.
+ *
+ * SECTION 2 closes a gap Section 1 cannot: Bootstrap 5.3 compiles component
+ * classes like `.btn-primary` and `.text-bg-primary` with their own SCOPED
+ * custom properties (`--bs-btn-bg`, `--bs-primary-rgb`, …), literal hex values
+ * baked in at Sass-compile time. `.btn` reads `background-color:
+ * var(--bs-btn-bg)`, not `var(--bs-primary)` — so overriding the global
+ * `--bs-primary` above does nothing for a rendered button. Section 2 overrides
+ * those scoped variables directly, per component class, for the 8 Bootstrap
+ * semantic colours.
+ *
+ * See the HONEST LIMIT note at the end of this file for what neither section
+ * covers. */
+
+/* ── Section 1 — global `--bs-*` role and structural variables ─────────────── */
+:root {
+  /* Brand */
+  --bs-primary:   var(--accent);
+  --bs-secondary: var(--electric);
+  --bs-success:   var(--mint);
+  --bs-info:      var(--sky);
+  --bs-warning:   var(--amber-brand);
+  --bs-danger:    var(--rose);
+  --bs-light:     var(--fg1);
+  --bs-dark:      var(--background);
+
+  /* Structural — flip with the active scheme */
+  --bs-body-bg:        var(--background);
+  --bs-body-color:     var(--fg1);
+  --bs-border-color:   var(--border);
+  --bs-secondary-color: var(--fg2);
+  --bs-secondary-bg:   var(--surface);
+  --bs-tertiary-bg:    var(--surface-elevated);
+  --bs-emphasis-color: var(--fg1);
+  --bs-link-color:     var(--electric-text);
+  --bs-link-hover-color: var(--electric-light);
+
+  /* Components that already read --bs-* at runtime */
+  --bs-dropdown-bg:           var(--surface-elevated);
+  --bs-dropdown-border-color: var(--glass-border);
+  --bs-dropdown-link-hover-bg: var(--hover-overlay);
+  --bs-card-bg:               var(--card);
+}
+
+/* ── Section 2 — compiled-literal component overrides ───────────────────────
+ *
+ * Colour-role table — 6 of Bootstrap's 8 semantic roles, not 8. `light` and
+ * `dark` are deliberately EXCLUDED from everything below; see the dedicated
+ * note just before the `.text-bg-*` block for why, it's a correctness issue,
+ * not an oversight:
+ *
+ *   primary -> --accent      secondary -> --electric   success -> --mint
+ *   info    -> --sky         warning   -> --amber-brand danger  -> --rose
+ *
+ * `--bs-btn-bg` / `--bs-btn-border-color` (Bootstrap sets both to the same
+ * value for a solid button) take the role's colour token directly — hex to
+ * hex, no format conversion needed. Disabled state matches Bootstrap's own
+ * convention of reusing the base colour.
+ *
+ * Hover and active states are set to the SAME token as the base state, not a
+ * darker/lighter shade. Bootstrap derives its stock hover shade with Sass
+ * `shade-color()`; this package has no equivalent per-role "hover shade" token
+ * for all 6 roles (only 3 of 6 colours even have a `-deep`/`-dark` companion),
+ * and using one for some roles and stock literals for the rest would be a
+ * worse, inconsistent result than leaving every state the correct brand colour
+ * with no shade change on interaction. See the HONEST LIMIT note below.
+ *
+ * `--bs-btn-color` (the text ink) uses this package's `--on-*` ink where one
+ * exists (`success`/`info`/`warning`) and otherwise falls back to Bootstrap's
+ * own shipped literal — this package does not publish `--on-accent`,
+ * `--on-electric` or `--on-rose`, and inventing one is a design decision this
+ * phase does not own. That fallback carries the SAME known characteristic
+ * `src/engine/property.test.ts` already documents and accepts engine-wide:
+ * white text on a dark-scheme primary/secondary fill is measurably imperfect
+ * (obsidian's own dark `--mint`/`--electric` are 1.71:1 / low-contrast against
+ * white by design — the property test proves this is unachievable for ANY
+ * preset, not a defect specific to Bootstrap). This is an inherited, already
+ * -tested tradeoff, not a new one Section 2 introduces. */
+
+.btn-primary {
+  --bs-btn-color: #fff; /* no --on-accent token; Bootstrap's shipped ink kept */
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--accent);
+  --bs-btn-hover-border-color: var(--accent);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--accent);
+  --bs-btn-active-border-color: var(--accent);
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-bg: var(--accent);
+  --bs-btn-disabled-border-color: var(--accent);
+}
+
+.btn-secondary {
+  --bs-btn-color: #fff; /* no --on-electric token; Bootstrap's shipped ink kept */
+  --bs-btn-bg: var(--electric);
+  --bs-btn-border-color: var(--electric);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--electric);
+  --bs-btn-hover-border-color: var(--electric);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--electric);
+  --bs-btn-active-border-color: var(--electric);
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-bg: var(--electric);
+  --bs-btn-disabled-border-color: var(--electric);
+}
+
+.btn-success {
+  --bs-btn-color: var(--on-mint);
+  --bs-btn-bg: var(--mint);
+  --bs-btn-border-color: var(--mint);
+  --bs-btn-hover-color: var(--on-mint);
+  --bs-btn-hover-bg: var(--mint);
+  --bs-btn-hover-border-color: var(--mint);
+  --bs-btn-active-color: var(--on-mint);
+  --bs-btn-active-bg: var(--mint);
+  --bs-btn-active-border-color: var(--mint);
+  --bs-btn-disabled-color: var(--on-mint);
+  --bs-btn-disabled-bg: var(--mint);
+  --bs-btn-disabled-border-color: var(--mint);
+}
+
+.btn-info {
+  --bs-btn-color: var(--on-sky);
+  --bs-btn-bg: var(--sky);
+  --bs-btn-border-color: var(--sky);
+  --bs-btn-hover-color: var(--on-sky);
+  --bs-btn-hover-bg: var(--sky);
+  --bs-btn-hover-border-color: var(--sky);
+  --bs-btn-active-color: var(--on-sky);
+  --bs-btn-active-bg: var(--sky);
+  --bs-btn-active-border-color: var(--sky);
+  --bs-btn-disabled-color: var(--on-sky);
+  --bs-btn-disabled-bg: var(--sky);
+  --bs-btn-disabled-border-color: var(--sky);
+}
+
+.btn-warning {
+  --bs-btn-color: var(--on-amber);
+  --bs-btn-bg: var(--amber-brand);
+  --bs-btn-border-color: var(--amber-brand);
+  --bs-btn-hover-color: var(--on-amber);
+  --bs-btn-hover-bg: var(--amber-brand);
+  --bs-btn-hover-border-color: var(--amber-brand);
+  --bs-btn-active-color: var(--on-amber);
+  --bs-btn-active-bg: var(--amber-brand);
+  --bs-btn-active-border-color: var(--amber-brand);
+  --bs-btn-disabled-color: var(--on-amber);
+  --bs-btn-disabled-bg: var(--amber-brand);
+  --bs-btn-disabled-border-color: var(--amber-brand);
+}
+
+.btn-danger {
+  --bs-btn-color: #fff; /* no --on-rose token; Bootstrap's shipped ink kept */
+  --bs-btn-bg: var(--rose);
+  --bs-btn-border-color: var(--rose);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--rose);
+  --bs-btn-hover-border-color: var(--rose);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--rose);
+  --bs-btn-active-border-color: var(--rose);
+  --bs-btn-disabled-color: #fff;
+  --bs-btn-disabled-bg: var(--rose);
+  --bs-btn-disabled-border-color: var(--rose);
+}
+
+/* `.btn-light` / `.btn-dark` are deliberately NOT overridden here — and
+ * Section 1's `--bs-light: var(--fg1)` / `--bs-dark: var(--background)` are
+ * left as-is (unchanged from the runtime bridge this file replaces) rather
+ * than "fixed", because the bug is specific to compiling them into a FIXED
+ * ink pair, which only Section 2 does.
+ *
+ * `--fg1` and `--background` are SCHEME-ADAPTIVE by design: `--fg1` is
+ * near-white in dark scheme (it's body text on a dark page) and near-black in
+ * light scheme (body text on a light page) — same token, opposite lightness,
+ * on purpose. Bootstrap's `light`/`dark` roles are the opposite: a fixed pair
+ * (default `#f8f9fa` / `#212529`) meant to read the same regardless of the
+ * page's own scheme. Pairing a flipping token with a fixed ink measures out
+ * at roughly 18-21:1 in dark scheme and roughly 1.0-1.35:1 in light scheme
+ * (measured by running `resolveBrand()` for all 6 presets, both schemes, not
+ * assumed) — the SAME source producing a strong pass in one mode and text
+ * that is functionally invisible in the other. Bootstrap's own compiled
+ * literals for `.btn-light`/`.btn-dark` remain in effect instead: always
+ * legible, just not brand-coloured, which is strictly better than a
+ * brand-coloured button half the userbase can't read. */
+
+/* `.text-bg-{role}` reads `RGBA(var(--bs-{role}-rgb), var(--bs-bg-opacity, 1))`
+ * — a DIFFERENT baked variable again, an RGB TRIPLE rather than a hex, and one
+ * source 1 explicitly does not touch (see its own note, carried into the
+ * HONEST LIMIT below). This package's matching `-channel` tokens are RGB
+ * triples too, but SPACE-separated (`R G B`); Bootstrap's `--bs-{role}-rgb` is
+ * COMMA-separated (`R, G, B`) and is consumed through the legacy comma
+ * `rgba()` grammar, which does not accept a mix of the two. Feeding a space
+ * triple into `--bs-{role}-rgb` would not recolour the badge — it would make
+ * the whole `background-color` declaration invalid, which is worse.
+ *
+ * So instead of repointing `--bs-{role}-rgb`, `background-color` is overridden
+ * directly, using the space-triple token in the MODERN `rgb(R G B / A)` syntax
+ * it actually matches — same selector, same specificity, `!important` to match
+ * the rule it replaces, later in the cascade so it wins.
+ *
+ * `primary` is the one role that can't use this form. `--bs-primary` maps to
+ * `--accent` (a fixed ramp-index reference, `{k:"ramp", family:"mint",
+ * index:2}`), NOT to `--mint` itself — and `--mint`'s own value is subject to
+ * phase 5a's contrast-driven duty search, which can and does land it on a
+ * DIFFERENT ramp index per preset (confirmed by actually running
+ * `resolveBrand()` for all 6 presets, not assumed from the token definitions:
+ * `--accent` and `--mint` differ in dark scheme for meridian/solstice/beacon,
+ * and in light scheme for obsidian specifically — where `--accent`
+ * deliberately stays on the ramp's natural step while `--mint` took a
+ * contrast-driven shift, see `--accent`'s own doc comment in
+ * `src/presets/obsidian.ts` — but not for the other 5 presets in light scheme,
+ * where the two happen to coincide. Either way `--accent` is the value that is
+ * always correct, so it's used unconditionally rather than only where the two
+ * are known to differ today. There is no `--accent-channel` token to
+ * substitute, so `.text-bg-primary` falls back to the plain hex form — correct
+ * colour always, at the cost of not honouring a `.bg-opacity-*` utility on
+ * this one role (the other four keep full opacity support). `.text-bg-light`
+ * and `.text-bg-dark` are not overridden at all, for the identical
+ * scheme-adaptive-token-vs-fixed-role reason documented above the `.btn-*`
+ * block — Bootstrap's own literal stays in effect for both. */
+.text-bg-primary   { background-color: var(--accent) !important; }
+.text-bg-secondary { background-color: rgb(var(--electric-channel)   / var(--bs-bg-opacity, 1)) !important; }
+.text-bg-success   { background-color: rgb(var(--mint-channel)       / var(--bs-bg-opacity, 1)) !important; }
+.text-bg-info      { background-color: rgb(var(--sky-channel)        / var(--bs-bg-opacity, 1)) !important; }
+.text-bg-warning   { background-color: rgb(var(--amber-channel)      / var(--bs-bg-opacity, 1)) !important; }
+.text-bg-danger    { background-color: rgb(var(--rose-channel)       / var(--bs-bg-opacity, 1)) !important; }
+
+/* HONEST LIMIT.
+ *
+ * Section 1's own limit still stands: `--bs-*-rgb` (the global, non-`.text-bg-`
+ * one) is not overridden, for the format-clash reason explained above.
+ *
+ * Additionally, after this file:
+ *   - `.btn-light` / `.btn-dark` / `.text-bg-light` / `.text-bg-dark` are not
+ *     brand-coloured at all — Bootstrap's own literals render instead. See the
+ *     dedicated note above the `.text-bg-*` block: the two tokens those roles
+ *     would need (`--fg1`, `--background`) are scheme-adaptive, Bootstrap's
+ *     `light`/`dark` roles are not, and pairing them measured out to ~1:1
+ *     contrast in light scheme across all 6 presets — a real, confirmed
+ *     regression, not a hypothetical one, caught by actually running
+ *     `resolveBrand()` rather than trusting the mapping on paper.
+ *   - `.text-bg-primary` does not honour a `.bg-opacity-*` utility — it uses
+ *     the plain `var(--accent)` hex, not the alpha-aware `rgb(.. / ..)` form
+ *     the other four roles use, because no `--accent-channel` token exists
+ *     (see the note above `.text-bg-primary` itself). Correct colour beats
+ *     matching a utility this app is not confirmed to use on that role.
+ *   - `--bs-btn-hover-*` / `--bs-btn-active-*` hold the SAME colour as the base
+ *     state (see the note above the `.btn-*` rules) — correct colour, no shade
+ *     change on hover or press.
+ *   - `--bs-btn-focus-shadow-rgb` and `--bs-btn-active-shadow` are untouched —
+ *     the first is the same comma-triple format clash as `--bs-*-rgb`; the
+ *     second (`inset 0 3px 5px rgba(0, 0, 0, 0.125)`) is a neutral depth cue,
+ *     not a brand colour.
+ *   - `.text-bg-*`'s `color` (`#fff` / `#000`) is Bootstrap's own literal, never
+ *     a `var()` — only its `background-color` is addressed here.
+ *   - `.btn-outline-*`, `.btn-check` focus/checked states, and `.table-{role}`
+ *     bake their own separate sets of literal hex values and are not addressed.
+ *   - `.alert-{role}`, `.list-group-item-{role}` and `.accordion`'s active state
+ *     all read a THIRD baked-literal system — `--bs-{role}-text-emphasis`,
+ *     `--bs-{role}-bg-subtle`, `--bs-{role}-border-subtle` — declared in
+ *     Bootstrap's `:root` (and again, differently, under its own
+ *     `[data-bs-theme="dark"]` block). None of that system is touched here.
+ *
+ * This app is MUI-first; Bootstrap's surface is small and the components above
+ * are the ones actually in use. Widening coverage is a scoped follow-up, not an
+ * oversight to paper over. */
