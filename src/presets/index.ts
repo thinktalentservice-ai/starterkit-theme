@@ -7,6 +7,11 @@
  */
 import type { PresetSpec } from "../engine/spec";
 import { OBSIDIAN } from "./obsidian";
+import { MERIDIAN } from "./meridian";
+import { SOLSTICE } from "./solstice";
+import { BEACON } from "./beacon";
+import { GRAPHITE } from "./graphite";
+import { ATLAS } from "./atlas";
 
 export const PRESET_IDS = [
   "obsidian",
@@ -25,10 +30,15 @@ export function isPresetId(value: string): value is PresetId {
   return ID_SET.has(value);
 }
 
-/** Shipped presets. Five of the six land in phase 5; a caller must handle a
- *  missing id rather than assume the catalogue is complete. */
+/** Shipped presets. All six land as of phase 5b; a caller must still handle a
+ *  missing id rather than assume the catalogue can only grow. */
 export const PRESETS: Partial<Record<PresetId, PresetSpec>> = {
   obsidian: OBSIDIAN,
+  meridian: MERIDIAN,
+  solstice: SOLSTICE,
+  beacon: BEACON,
+  graphite: GRAPHITE,
+  atlas: ATLAS,
 };
 
-export { OBSIDIAN };
+export { OBSIDIAN, MERIDIAN, SOLSTICE, BEACON, GRAPHITE, ATLAS };

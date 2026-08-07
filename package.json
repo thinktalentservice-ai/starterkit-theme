@@ -54,10 +54,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:fuzz": "vitest run src/engine/fuzz.test.ts",
     "smoke": "node scripts/smoke.mjs",
     "gen:tokens": "node scripts/gen-token-names.mjs",
     "gen:tokens:check": "node scripts/gen-token-names.mjs --check",
-    "verify": "pnpm typecheck && pnpm gen:tokens:check && pnpm test && pnpm build && pnpm smoke"
+    "verify": "pnpm typecheck && pnpm gen:tokens:check && pnpm test && pnpm test:fuzz && pnpm build && pnpm smoke"
   },
   "peerDependencies": {
     "@mui/material": ">=6",
@@ -81,6 +82,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "culori": "^4.0.2",
+    "fast-check": "^4.9.0",
     "jsdom": "^26.1.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
