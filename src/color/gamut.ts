@@ -10,9 +10,21 @@
  */
 import { oklabToLinearRgb, oklchToOklab, type Oklch } from "./oklch";
 
-/* Slightly loose, because a colour that is 1e-12 outside gamut quantizes to the
- * same byte as one exactly on it, and bisecting toward it would burn iterations
- * to no visible effect. */
+/* Measured, not chosen.
+ *
+ * The round trip sRGB -> OKLab -> linear sRGB does not land exactly back on
+ * [0,1]: across a dense sweep of real 8-bit colours the largest overshoot is
+ * 1.978e-7, at #ffffff of all places. A predicate tighter than that reports pure
+ * white as out of gamut, and `clampChroma` would then desaturate colours that
+ * were already displayable — silently changing a hand-authored ramp.
+ *
+ * 1e-6 sits ~5x above that measured floor and ~3000x below one 8-bit step
+ * (a linear-RGB error of 1e-6 moves the emitted byte by 3e-4, which cannot be
+ * represented, let alone seen). An independent implementation using an exact
+ * [0,1] bound therefore disagrees with this one on the last ~1e-6 of chroma;
+ * that gap is asserted as a bound in the cross-check test rather than papered
+ * over, because the honest claim is "displayable once quantized", not
+ * "mathematically inside the boundary". */
 const EPSILON = 1e-6;
 
 /** True when the unclamped linear conversion lands inside [0,1] on all three

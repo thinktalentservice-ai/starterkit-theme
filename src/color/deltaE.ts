@@ -18,13 +18,37 @@
  */
 import { hexToRgb, type Rgb } from "./oklch";
 
-/** CIE Lab, D65 2-degree observer. */
+/**
+ * CIE Lab, D65 2-degree observer.
+ *
+ * D65 and NOT the D50 that CSS Color 4's `lab()` uses. sRGB is a D65 space, so
+ * comparing two sRGB colours in D65 Lab is a direct measurement; going via D50
+ * inserts a Bradford chromatic adaptation and its inverse, which is round-off in
+ * service of an illuminant neither colour was ever in. Every serious ciede2000
+ * implementation makes the same call — culori's `differenceCiede2000` converts
+ * its inputs to `lab65` before doing anything, which is how a cross-check
+ * against it initially "failed": D50 Lab values were handed to a function that
+ * adapted them to D65 first. The library was right and the harness was wrong.
+ */
 export type Lab = { l: number; a: number; b: number };
 
-/* D65 white point, 2-degree observer. */
-const XN = 0.95047;
-const YN = 1.0;
-const ZN = 1.08883;
+/* Full-precision sRGB -> XYZ D65, from the CSS Color 4 conversion code rather
+   than the 7-digit table that gets copied around. The rounded matrix disagrees
+   with a reference implementation in the third decimal of a* and b*, which is
+   invisible for display but not for a gate that fires at dE00 = 1.0. */
+const M = [
+  [0.4123907992659593, 0.357584339383878, 0.1804807884018343],
+  [0.2126390058715102, 0.715168678767756, 0.0721923153607337],
+  [0.0193308187155918, 0.119194779794626, 0.9505321522496607],
+] as const;
+
+/* The white point is the matrix's own row sums, not a separately-rounded
+   constant. Derived this way, pure white maps to exactly L=100, a=0, b=0; take
+   the constants from a different source and it does not, so `deltaE00(white,
+   white)` picks up a floor of noise. */
+const XN = M[0][0] + M[0][1] + M[0][2];
+const YN = M[1][0] + M[1][1] + M[1][2];
+const ZN = M[2][0] + M[2][1] + M[2][2];
 
 const toLinear = (channel: number): number =>
   channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
@@ -35,9 +59,9 @@ export function rgbToLab({ r, g, b }: Rgb): Lab {
   const lg = toLinear(g / 255);
   const lb = toLinear(b / 255);
 
-  const x = (0.4124564 * lr + 0.3575761 * lg + 0.1804375 * lb) / XN;
-  const y = (0.2126729 * lr + 0.7151522 * lg + 0.072175 * lb) / YN;
-  const z = (0.0193339 * lr + 0.119192 * lg + 0.9503041 * lb) / ZN;
+  const x = (M[0][0] * lr + M[0][1] * lg + M[0][2] * lb) / XN;
+  const y = (M[1][0] * lr + M[1][1] * lg + M[1][2] * lb) / YN;
+  const z = (M[2][0] * lr + M[2][1] * lg + M[2][2] * lb) / ZN;
 
   const f = (t: number): number => (t > 216 / 24389 ? Math.cbrt(t) : (841 / 108) * t + 4 / 29);
   const fx = f(x);
