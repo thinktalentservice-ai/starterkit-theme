@@ -6,7 +6,7 @@
  * incumbent's ramps, unchanged.
  */
 import type { PresetSpec, Provenance, TokenRule } from "../engine/spec";
-import { OBSIDIAN } from "./obsidian";
+import { OBSIDIAN, SHARED_DARK_DUTIES } from "./obsidian";
 
 const literal = (dark: string, light = dark): TokenRule => ({
   kind: "literal",
@@ -106,7 +106,23 @@ export const MERIDIAN: PresetSpec = {
       because: "WCAG 1.4.3 — palette.error.main with white contrastText",
       enforce: "search",
     },
+    /* Dark-scheme secondary. Spread, not re-listed — see SHARED_DARK_DUTIES. */
+    ...SHARED_DARK_DUTIES,
   ],
 
-  acknowledged: [],
+  acknowledged: [
+    {
+      token: "--electric",
+      scheme: "dark",
+      measured: 4.44,
+      reason:
+        "`palette.secondary.main` as text/icon on `background.paper`, 4.44:1 against 4.5. " +
+        "PRE-EXISTING and invisible until now: this preset declared no dark duty for " +
+        "`--electric` at all, so it failed with `warnings` EMPTY while obsidian's " +
+        "near-identical 4.41 was acknowledged and visible. Recorded rather than fixed — " +
+        "`enforce: \"search\"` here would restyle every secondary button in the preset, " +
+        "which is a design change and belongs in its own review. `--electric-text` is the " +
+        "value that would clear it.",
+    },
+  ],
 };

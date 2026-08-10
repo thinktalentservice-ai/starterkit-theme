@@ -21,7 +21,7 @@
  * with two values for one state.
  */
 import { measureGeometry } from "../engine/ramp";
-import type { ColorRef, PresetSpec, Provenance, RampStep, TokenRule } from "../engine/spec";
+import type { ColorRef, Duty, PresetSpec, Provenance, RampStep, TokenRule } from "../engine/spec";
 import { hexToOklch } from "../color/oklch";
 
 /* ── Family ramps, lightest first ─────────────────────────────────────────── */
@@ -90,9 +90,23 @@ const DARK_TARGET: Partial<Record<keyof typeof RAMPS, number>> = {
 
 /* The price cap on that target, measured from the colour at the FLOOR — see
  * `darkChromaRetention`, where the seed-relative version of this is written up
- * as the regression it caused. 20% buys back ~75% of the perceptual gap:
- * obsidian and atlas reach 10.9 outright at zero chroma cost, and the four
- * gamut-limited hues stop at 9.25-9.55 instead of going pastel. */
+ * as the regression it caused. At 0.20 obsidian and atlas reach 10.9 outright at
+ * zero chroma cost, and the four gamut-limited hues stop at 9.28-9.58, closing
+ * 70% of the OKLCH-L gap to the incumbent and 48% of the contrast gap.
+ *
+ * SWEPT, and the sweep's finding is that there is NO KNEE to derive this from —
+ * `--mint` averaged over the four gamut-limited presets:
+ *
+ *     retention   0.10   0.15   0.20   0.25   0.30   0.40
+ *     avg ratio   8.71   9.06   9.44   9.82  10.23  10.91
+ *     per +0.05      —  +0.35  +0.38  +0.38  +0.41  +0.69
+ *
+ * Contrast and chroma trade at a near-constant ~0.075 ratio points per 1pp of
+ * budget across the whole usable range; the jump at 0.40 is only the four hues
+ * saturating at the target, where they land at chroma 0.083-0.087 — the pastel
+ * the cap exists to prevent. So 0.20 is a PREFERENCE at a known exchange rate,
+ * not an optimum, and it is written down that way rather than dressed up as one.
+ * Move it and the whole ladder moves smoothly and predictably. */
 const DARK_CHROMA_RETENTION: Partial<Record<keyof typeof RAMPS, number>> = {
   mint: 0.2,
 };
@@ -651,6 +665,38 @@ const ALL_NAMES = [
   "--radius-pill",
 ];
 
+/**
+ * Dark-scheme duties every preset owes, regardless of which hues it reseeds.
+ *
+ * Exported and SPREAD rather than re-listed, for the reason the family spreads
+ * already document: obsidian declared `--electric` in dark and the other five
+ * declared nothing in dark beyond their own three seeds, so meridian (4.44),
+ * solstice (4.42) and beacon (4.42) all missed 4.5:1 on `palette.secondary.main`
+ * with `warnings` EMPTY. Obsidian's own 4.41 was acknowledged and visible; the
+ * identical failure in five other presets was not reported anywhere, because a
+ * duty nobody wrote cannot be searched, reported or acknowledged.
+ *
+ * `enforce: "report"` deliberately. Searching would move `--electric` — and so
+ * every preset's secondary button — which is a visible restyle, not a
+ * measurement. The point here is to make the number visible, not to change it.
+ *
+ * `--electric-deep` is NOT here and should not be added: it is a gradient stop
+ * (`--gradient-secondary`), i.e. a fill that sits UNDER text. Its 2.63-3.48:1
+ * against `--surface` is the wrong measurement for what it does; the right one
+ * is the ink on it, which the host's legibility gate already measures at
+ * 7.10-19.08:1 as `btn-solid-label-secondary-end`.
+ */
+export const SHARED_DARK_DUTIES: readonly Duty[] = [
+  {
+    token: "--electric",
+    against: "--surface",
+    min: 4.5,
+    scheme: "dark",
+    because: "WCAG 1.4.3 — palette.secondary.main as text and icon colour on background.paper",
+    enforce: "report",
+  },
+];
+
 export const OBSIDIAN: PresetSpec = {
   id: "obsidian",
   name: "Obsidian Command",
@@ -718,14 +764,7 @@ export const OBSIDIAN: PresetSpec = {
       because: "WCAG 1.4.3 — palette.primary.main as text and icon colour on background.paper",
       enforce: "report",
     },
-    {
-      token: "--electric",
-      against: "--surface",
-      min: 4.5,
-      scheme: "dark",
-      because: "WCAG 1.4.3 — palette.secondary.main as text and icon colour on background.paper",
-      enforce: "report",
-    },
+    ...SHARED_DARK_DUTIES,
   ],
 
   acknowledged: [

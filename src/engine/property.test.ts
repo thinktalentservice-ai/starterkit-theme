@@ -30,6 +30,7 @@ import { fileURLToPath } from "node:url";
 import { contrastRatio, fitContrast } from "../color/contrast";
 import { hexToOklch, hexToTriple } from "../color/oklch";
 import { PRESETS } from "../presets/index";
+import { SHARED_DARK_DUTIES } from "../presets/obsidian";
 import { CHANNEL_PAIRS, ROOT_TOKEN_NAMES } from "../tokens/names";
 import { measureAcknowledged, resolveBrand } from "./resolve";
 
@@ -298,6 +299,33 @@ describe("property — invariants across all 6 presets, both schemes", () => {
         if (id === "obsidian" && brand.dark.get(main) !== preset.families[famId]!.seed.toLowerCase()) {
           problems.push(`obsidian|${main}: ${brand.dark.get(main)} !== seed ${preset.families[famId]!.seed}`);
         }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it("every preset declares the shared dark duties — a duty nobody wrote cannot be reported", () => {
+    /* Obsidian declared `--electric` in dark; the other five declared nothing in
+       dark beyond their own three reseeded families. So meridian (4.44),
+       solstice (4.42) and beacon (4.42) all missed 4.5:1 on
+       `palette.secondary.main` with `warnings` EMPTY — the identical failure
+       obsidian had acknowledged in writing at 4.41.
+
+       `warnings` being empty is exactly what this cannot detect on its own,
+       which is why the assertion is about the DUTY LIST and not about the
+       output: a preset that forgets the spread is silent, and silence is
+       indistinguishable from passing. */
+    const problems: string[] = [];
+    for (const [id, preset] of PRESET_ENTRIES) {
+      for (const shared of SHARED_DARK_DUTIES) {
+        const covered = (preset.duties ?? []).some(
+          (d) =>
+            d.token === shared.token &&
+            d.against === shared.against &&
+            d.min >= shared.min &&
+            (d.scheme === "dark" || d.scheme === "both"),
+        );
+        if (!covered) problems.push(`${id} does not declare the shared dark duty for ${shared.token}`);
       }
     }
     expect(problems).toEqual([]);

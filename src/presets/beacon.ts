@@ -7,7 +7,7 @@
  * legitimately come back unmet; see the acknowledged section if so.
  */
 import type { PresetSpec, Provenance, TokenRule } from "../engine/spec";
-import { OBSIDIAN } from "./obsidian";
+import { OBSIDIAN, SHARED_DARK_DUTIES } from "./obsidian";
 
 const literal = (dark: string, light = dark): TokenRule => ({
   kind: "literal",
@@ -107,6 +107,8 @@ export const BEACON: PresetSpec = {
       because: "WCAG 1.4.6 AAA — palette.error.main with white contrastText; beacon targets AAA",
       enforce: "search",
     },
+    /* Dark-scheme secondary. Spread, not re-listed — see SHARED_DARK_DUTIES. */
+    ...SHARED_DARK_DUTIES,
   ],
 
   /* Beacon's 7:1 AAA bar is stricter than any duty obsidian ever declared, and
@@ -122,6 +124,19 @@ export const BEACON: PresetSpec = {
      it is 11.6/9.6 rather than a third copy of the same colour. The stale-
      acknowledgment check in property.test.ts fails the build if it is left in. */
   acknowledged: [
+    {
+      token: "--electric",
+      scheme: "dark",
+      measured: 4.42,
+      reason:
+        "`palette.secondary.main` as text/icon on `background.paper`, 4.42:1 against 4.5. " +
+        "PRE-EXISTING and invisible until now: this preset declared no dark duty for " +
+        "`--electric` at all, so it failed with `warnings` EMPTY while obsidian's " +
+        "near-identical 4.41 was acknowledged and visible. Recorded rather than fixed — " +
+        "`enforce: \"search\"` here would restyle every secondary button in the preset, " +
+        "which is a design change and belongs in its own review. `--electric-text` is the " +
+        "value that would clear it.",
+    },
     {
       token: "--amber-brand",
       scheme: "light",

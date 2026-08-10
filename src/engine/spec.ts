@@ -148,6 +148,14 @@ export type FamilySpec = {
    * A near-grey seed has almost no chroma to spend, so a relative budget barely
    * constrains it — correct for a neutral, and a reason not to point an
    * ambitious `darkTarget` at a low-chroma family.
+   *
+   * There is no knee in this curve to tune against: contrast buys in at a
+   * near-constant ~0.075 ratio points per 1pp of budget (swept 0.10-0.40 in
+   * `obsidian.ts`). Whatever a preset picks is a preference at a known exchange
+   * rate, so pick it deliberately and write the rate down.
+   *
+   * Must be finite and in (0, 1); anything else throws rather than silently
+   * disabling the budget.
    */
   darkChromaRetention?: number;
 };

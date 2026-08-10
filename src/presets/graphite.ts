@@ -6,7 +6,7 @@
  * incumbent's ramps, unchanged.
  */
 import type { PresetSpec, Provenance, TokenRule } from "../engine/spec";
-import { OBSIDIAN } from "./obsidian";
+import { OBSIDIAN, SHARED_DARK_DUTIES } from "./obsidian";
 
 const literal = (dark: string, light = dark): TokenRule => ({
   kind: "literal",
@@ -106,6 +106,8 @@ export const GRAPHITE: PresetSpec = {
       because: "WCAG 1.4.3 — palette.error.main with white contrastText",
       enforce: "search",
     },
+    /* Dark-scheme secondary. Spread, not re-listed — see SHARED_DARK_DUTIES. */
+    ...SHARED_DARK_DUTIES,
   ],
 
   acknowledged: [],
