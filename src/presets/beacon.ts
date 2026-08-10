@@ -15,27 +15,17 @@ const literal = (dark: string, light = dark): TokenRule => ({
 });
 
 const FAMILIES = {
-  mint: {
-    seed: "#0050B3",
-    geometry: OBSIDIAN.families.mint!.geometry,
-    slots: OBSIDIAN.families.mint!.slots,
-    lightFollow: OBSIDIAN.families.mint!.lightFollow,
-    darkFollow: { "--mint-dark": "--mint" },
-  },
-  electric: {
-    seed: "#6B21A8",
-    geometry: OBSIDIAN.families.electric!.geometry,
-    slots: OBSIDIAN.families.electric!.slots,
-  },
+  /* Spread the incumbent's family and swap ONLY the seed. Re-listing
+     `geometry`/`slots`/`lightFollow` field by field said the same thing until
+     `darkFloor` was added to FamilySpec — then it silently dropped it here while
+     obsidian had it, which is the whole class of bug a spread closes. */
+  mint: { ...OBSIDIAN.families.mint!, seed: "#0050B3", darkFollow: { "--mint-dark": "--mint" } },
+  electric: { ...OBSIDIAN.families.electric!, seed: "#6B21A8" },
   amber: OBSIDIAN.families.amber!,
   cobalt: OBSIDIAN.families.cobalt!,
   rose: OBSIDIAN.families.rose!,
   sky: OBSIDIAN.families.sky!,
-  cyan: {
-    seed: "#0050B3",
-    geometry: OBSIDIAN.families.cyan!.geometry,
-    slots: OBSIDIAN.families.cyan!.slots,
-  },
+  cyan: { ...OBSIDIAN.families.cyan!, seed: "#0050B3" },
 };
 
 const NEUTRAL_DARK = { seed: "#0A0F16", slots: OBSIDIAN.neutral.dark.slots };
@@ -125,18 +115,13 @@ export const BEACON: PresetSpec = {
      it. These four are the resolver's own search landing on the ramp's bound
      and still falling short, measured by running resolveBrand(BEACON), not
      guessed. */
+  /* The `--mint` dark entry that stood here is GONE, not edited. It recorded the
+     search running to the ramp's bound at 4.05:1 — which is precisely the
+     collapse `darkFloor` removes: the dark ramp is now built from a seed lifted
+     to 8:1, so `--mint` lands at 8.1:1 at its declared index and the ladder above
+     it is 11.6/9.6 rather than a third copy of the same colour. The stale-
+     acknowledgment check in property.test.ts fails the build if it is left in. */
   acknowledged: [
-    {
-      token: "--mint",
-      scheme: "dark",
-      measured: 4.05,
-      reason:
-        "Beacon's primary ramp is obsidian's mint geometry on a #0050B3 seed. The " +
-        "dark-scheme search runs to the ramp's bound and lands at 4.05:1 on --surface — " +
-        "short of WCAG AA (4.5:1, close but not there) and further short of beacon's own " +
-        "7:1 AAA bar, though it clears 1.4.11's 3:1 non-text threshold. The ramp was never " +
-        "tuned past AA on this seed.",
-    },
     {
       token: "--amber-brand",
       scheme: "light",

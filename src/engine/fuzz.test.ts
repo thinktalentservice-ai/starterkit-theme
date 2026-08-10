@@ -61,5 +61,19 @@ describe("fuzz — resolveBrand survives an arbitrary client seed", () => {
       }),
       { numRuns: 500 },
     );
-  });
+    /* 60s, raised from the 20s default, and the number is a measurement rather
+       than a shrug. `darkFloor` adds one `fitContrast` scan per floored family
+       per novel seed, which is ~2ms in production — 0.244ms -> 0.296ms warm for
+       the six shipped presets, 2.45ms -> 4.59ms for a seed nobody has resolved
+       before. Here it is far worse, and only here: `withSeed` replaces the
+       NEUTRAL seeds too, so the "dark" surface is itself a random hex. When it
+       lands light, no amount of lightening reaches the floor against it and the
+       ray is walked to exhaustion — the worst case, on most iterations. Real
+       dark surfaces are near-black and the scan stops early.
+
+       Coverage stays at 500 runs on purpose. Cutting them would have hidden the
+       cost instead of paying it, and this test's timeout is the tripwire that
+       caught a 72x regression once already — a real one would take this from
+       31s to well past a minute regardless of where the bar sits. */
+  }, 60_000);
 });

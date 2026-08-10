@@ -21,7 +21,7 @@
  * with two values for one state.
  */
 import { measureGeometry } from "../engine/ramp";
-import type { PresetSpec, Provenance, RampStep, TokenRule } from "../engine/spec";
+import type { ColorRef, PresetSpec, Provenance, RampStep, TokenRule } from "../engine/spec";
 import { hexToOklch } from "../color/oklch";
 
 /* ── Family ramps, lightest first ─────────────────────────────────────────── */
@@ -43,6 +43,32 @@ const RAMPS = {
 
 const SEED_INDEX = { mint: 2, electric: 2, amber: 2, cobalt: 3, rose: 0, sky: 0, cyan: 0 } as const;
 
+/* Dark-window floors for the three families a client actually reseeds.
+ *
+ * Each number is THIS preset's own measured dark ratio on `--surface`, rounded
+ * DOWN — mint 10.92, electric 4.41, cyan 6.73. So obsidian clears all three with
+ * its shipped seeds and every dark ramp here is byte-identical to the one built
+ * before `darkFloor` existed; a client's darker seed is lifted to the same
+ * relationship instead. Rounding down is not cosmetic: a floor set EQUAL to the
+ * measured value re-quantises the incumbent (`min: 10.92` gave `#b3d436` for
+ * `#b3d335`), which is a diff on the one preset that must never move.
+ *
+ * mint stops at 8.0 rather than obsidian's 10.9 because brightness is paid for
+ * in chroma and sRGB has no bright saturated red or blue: at 10.9 graphite's red
+ * loses 55% of its chroma and meridian's blue 66%, i.e. pastel. 8.0 restores the
+ * full four-step ladder (11.6/9.6/8.0/4.5 across every preset) and costs at most
+ * 25%. electric and cyan sit at full parity because there it is nearly free —
+ * meridian's electric moves .074 -> .073.
+ *
+ * amber/cobalt/rose/sky carry no floor: they are shared ramps, identical in
+ * every preset, so there is no client seed for a floor to protect them from.
+ */
+const DARK_FLOOR: Partial<Record<keyof typeof RAMPS, number>> = {
+  mint: 8.0,
+  electric: 4.4,
+  cyan: 6.65,
+};
+
 const family = (
   id: keyof typeof RAMPS,
   slots: Record<string, number>,
@@ -54,6 +80,7 @@ const family = (
   slots,
   ...(lightShift ? { lightShift } : {}),
   ...(lightFollow ? { lightFollow } : {}),
+  ...(DARK_FLOOR[id] !== undefined ? { darkFloor: DARK_FLOOR[id] } : {}),
 });
 
 /* ── Neutral surfaces ─────────────────────────────────────────────────────── */
@@ -132,6 +159,61 @@ const BTN_SHADOW = {
   light: [{ geometry: "0 4px 20px", alpha: 0.3 }],
 } as const;
 
+/* ── Solid-fill stops ──────────────────────────────────────────────────────
+ *
+ * A brand hue does two unrelated jobs and only one of them wants darkening. As
+ * TEXT or a BORDER it must clear 4.5:1 on white, so light mode walks it down the
+ * ramp. As a FILL it sits UNDER text, where that walk buys nothing and costs the
+ * brand: obsidian's lime became olive, and every preset's primary button read as
+ * muddy. These tokens are the fill half, split out so the text half can keep
+ * darkening untouched.
+ *
+ * `from: "dark"` pins the SCHEME, not the brand — the seed still drives every
+ * one of these. Reading the SLOT rather than a ramp index is what makes it
+ * correct beyond obsidian: meridian, solstice and beacon SEARCH their dark
+ * scheme, so their dark `--mint` is not the seed index, and a ramp-pinned fill
+ * silently restyled their dark gradients. Measured, not assumed — that bug
+ * shipped in the first version of this change and was caught by an old-vs-new
+ * diff across all six presets. Obsidian alone would have looked clean.
+ *
+ * `lift` then puts a FLOOR under the result, and that is the part pinning alone
+ * could not do. A slot is the output of a contrast SEARCH; a search satisfies a
+ * floor and stops. Obsidian's lime seed overshoots 4.5:1 against dark `--surface`
+ * and lands at 11.20:1 against ink, while every dark-seeded preset halts on the
+ * minimum passing step — for meridian, solstice and beacon that is ramp index 0,
+ * the LIGHTEST colour their family has. The ramp geometry carries only ~+12 L*
+ * above its seed, so those families contain no bright colour at any index. It
+ * has to be synthesised, which is what this does.
+ *
+ * Obsidian is a no-op here BY CONSTRUCTION: `fitContrast` returns its input
+ * untouched when the input already passes. The mins are the floor, not a target,
+ * and `fitContrast` walks nearest-first — so each preset moves as little as it
+ * can and keeps its own hue. Matching obsidian's LIGHTNESS instead was tried and
+ * rejected: it turns graphite pink and solstice peach, i.e. it normalises away
+ * the one thing a preset is for. */
+const FILL_INK = { k: "fixed", hex: "#0b0f19" } as const;
+const FILL_WHITE = { k: "fixed", hex: "#ffffff" } as const;
+
+/** Floor a fill so the ink label stays crisp on it. `min` is against `FILL_INK`
+ *  and not against the resolved `*-fill-ink`, which would be circular — the ink
+ *  is CHOSEN by measuring the fill. Lifting toward ink first, then letting the
+ *  `ink` rule pick, is what makes ink win everywhere it should. */
+const fillFloor = (ref: ColorRef, min: number): ColorRef =>
+  ({ k: "lift", ref, against: FILL_INK, min });
+
+const slotFrom = (family: string, token: string): ColorRef =>
+  ({ k: "slot", family, token, from: "dark" });
+
+/* The start stop carries the label, so it takes the higher floor; the end stop
+   only has to stay legible where the gradient lands on it. Both stops are
+   floored — flooring one makes a gradient whose shape changes per preset. */
+const BRAND_FILL = fillFloor(slotFrom("mint", "--mint"), 8.5);
+const BRAND_FILL_END = fillFloor(slotFrom("cyan", "--cyan"), 5.5);
+const AMBER_FILL = fillFloor(slotFrom("amber", "--amber-brand"), 4.5);
+const AMBER_FILL_END = fillFloor(slotFrom("amber", "--amber-deep"), 4.5);
+const COBALT_FILL = fillFloor(slotFrom("cobalt", "--cobalt-light"), 4.5);
+const COBALT_FILL_END = fillFloor(slotFrom("cobalt", "--cobalt-deep"), 4.5);
+
 /** Alpha-on-overlay: the same veil in both schemes, white over dark and black
  *  over light. Left as a literal — as the button package had it — a light-first
  *  brand gets a white wash on white. */
@@ -148,6 +230,50 @@ const TOKENS: Record<string, TokenRule> = {
   "--accent-glow": { kind: "alpha", ref: ACCENT_BASE, a: { dark: 0.2, light: 0.2 }, scaled: true },
   "--accent-border": { kind: "alpha", ref: ACCENT_BASE, a: { dark: 0.26, light: 0.26 } },
   "--accent-fill": { kind: "alpha", ref: ACCENT_BASE, a: { dark: 0.06, light: 0.06 } },
+
+  /* SOLID-FILL STOPS — seed-following, scheme-invariant, floored. The reasoning
+     lives with the constants above rather than being restated here.
+
+     Deliberately NOT applied to `--gradient-secondary` or `--gradient-danger`:
+     violet already reads as a fill in light, and rose is scheme-invariant by
+     design (`lightShift: 0`) so there is nothing to pin. */
+  "--brand-fill": { kind: "solid", ref: BRAND_FILL },
+  "--brand-fill-end": { kind: "solid", ref: BRAND_FILL_END },
+  "--amber-fill": { kind: "solid", ref: AMBER_FILL },
+  "--amber-fill-end": { kind: "solid", ref: AMBER_FILL_END },
+  "--cobalt-fill": { kind: "solid", ref: COBALT_FILL },
+  "--cobalt-fill-end": { kind: "solid", ref: COBALT_FILL_END },
+
+  /* The label that sits ON each fill, MEASURED rather than declared — see the
+     `ink` rule in spec.ts. `FILL_INK` first, so a tie prefers ink; white wins
+     only where it genuinely reads better.
+
+     `over` reuses the SAME ref objects the fills are defined from, rather than
+     restating their slots. That is the reason `lift` is a ColorRef and not a
+     TokenRule: a token kind would need the ink rule to read an already-resolved
+     token, which needs a resolution pass that does not exist. Sharing the ref
+     costs one redundant `fitContrast` call — `resolveRef` is pure — and buys the
+     one property that matters, that the ink is measured against the colour the
+     fill ACTUALLY renders. Restating the slots here would measure the UNLIFTED
+     colour and pick white for exactly the presets the lift was added for.
+
+     These resolve identically in both schemes because their backdrops do, which
+     is the property that lets one token serve a fill that no longer flips. */
+  "--brand-fill-ink": {
+    kind: "ink",
+    over: [BRAND_FILL, BRAND_FILL_END],
+    candidates: [FILL_INK, FILL_WHITE],
+  },
+  "--amber-fill-ink": {
+    kind: "ink",
+    over: [AMBER_FILL, AMBER_FILL_END],
+    candidates: [FILL_INK, FILL_WHITE],
+  },
+  "--cobalt-fill-ink": {
+    kind: "ink",
+    over: [COBALT_FILL, COBALT_FILL_END],
+    candidates: [FILL_INK, FILL_WHITE],
+  },
 
   /* Brand tints that follow their family's emitted value */
   "--electric-dim": {
@@ -347,18 +473,26 @@ const TOKENS: Record<string, TokenRule> = {
 
   /* Gradients are `var()` references, so they follow the brand for free and
      need no light-scheme entry. This is why the sheet's gradients were already
-     safe when everything else needed an expander. */
-  "--gradient-primary": solidLiteral("linear-gradient(135deg, var(--mint), var(--cyan))"),
+     safe when everything else needed an expander.
+
+     The three that render a SOLID BUTTON FILL point at the `*-fill` stops above
+     rather than at `--mint` / `--amber-brand` / `--cobalt-light`, so they hold
+     their colour across schemes. Referencing the searched `--mint` here is what
+     made the light contained primary button olive: a value solved for legibility
+     as TEXT, spent on a surface that carries text instead. */
+  "--gradient-primary": solidLiteral(
+    "linear-gradient(135deg, var(--brand-fill), var(--brand-fill-end))",
+  ),
   "--gradient-mint": solidLiteral("linear-gradient(145deg, var(--mint), var(--mint-dark))"),
   "--gradient-secondary": solidLiteral(
     "linear-gradient(135deg, var(--electric), var(--electric-deep))",
   ),
   "--gradient-amber": solidLiteral(
-    "linear-gradient(135deg, var(--amber-brand), var(--amber-deep))",
+    "linear-gradient(135deg, var(--amber-fill), var(--amber-fill-end))",
   ),
   "--gradient-danger": solidLiteral("linear-gradient(135deg, var(--rose), var(--rose-deep))"),
   "--gradient-cobalt": solidLiteral(
-    "linear-gradient(145deg, var(--cobalt-light), var(--cobalt-deep))",
+    "linear-gradient(145deg, var(--cobalt-fill), var(--cobalt-fill-end))",
   ),
   "--gradient-avatar": solidLiteral("linear-gradient(135deg, var(--electric), var(--mint))"),
   "--gradient-progress": solidLiteral("linear-gradient(90deg, var(--electric), var(--mint))"),

@@ -8,7 +8,7 @@
  * warning and no visual clue beyond a translucent layer being the wrong colour,
  * across 32 call sites in two published packages.
  */
-import { contrastRatio } from "../color/contrast";
+import { contrastRatio, fitContrast } from "../color/contrast";
 import { hexToOklch, hexToTriple, normalizeHex } from "../color/oklch";
 import { buildRamp, rampAt, slotIndex } from "./ramp";
 import type {
@@ -18,10 +18,10 @@ import type {
   PresetSpec,
   ResolvedBrand,
   Scheme,
+  SchemeName,
   TokenRule,
 } from "./spec";
 
-type SchemeName = "dark" | "light";
 const SCHEMES: readonly SchemeName[] = ["dark", "light"];
 
 /**
@@ -57,7 +57,11 @@ const OVERLAY: Record<"flip" | "white" | "black", Scheme<string>> = {
 
 type Context = {
   preset: PresetSpec;
-  ramps: Record<string, string[]>;
+  /* Per-scheme, because `darkFloor` lifts the SEED of the dark ramp — see the
+     FamilySpec doc. The light entry is always built from the untouched seed, so
+     a family with no floor holds two structurally identical ramps and every
+     `ramp` ref resolves exactly as it did before this split. */
+  ramps: Scheme<Record<string, string[]>>;
   neutral: Scheme<Map<string, string>>;
   families: Scheme<Map<string, string>>;
   /* Filled between the two passes. A channel's base can be a plain literal
@@ -79,23 +83,112 @@ function resolveRef(ref: ColorRef, scheme: SchemeName, ctx: Context): string {
       return resolveRef(scheme === "dark" ? ref.dark : ref.light, scheme, ctx);
 
     case "slot": {
+      /* `from` pins the source scheme; both family maps are fully populated by
+         the time any token rule resolves, so reading across is safe here and
+         only here. See the ColorRef doc for why this is not `ramp`+`shift: 0`. */
+      const read = ref.from ?? scheme;
       if (ref.family === "neutral") {
-        const hex = ctx.neutral[scheme].get(ref.token);
+        const hex = ctx.neutral[read].get(ref.token);
         if (hex === undefined) throw new Error(`neutral has no slot ${ref.token}`);
         return hex;
       }
-      const hex = ctx.families[scheme].get(ref.token);
+      const hex = ctx.families[read].get(ref.token);
       if (hex === undefined) throw new Error(`family ${ref.family} has no slot ${ref.token}`);
       return hex;
     }
 
     case "ramp": {
-      const ramp = ctx.ramps[ref.family];
+      const ramp = ctx.ramps[scheme][ref.family];
       if (ramp === undefined) throw new Error(`unknown family ${ref.family}`);
       const shift = ref.shift ?? 1;
       return rampAt(ramp, ref.index + (scheme === "light" ? shift : 0));
     }
+
+    case "lift": {
+      const base = resolveRef(ref.ref, scheme, ctx);
+      const against = resolveRef(ref.against, scheme, ctx);
+      /* The engine's own duty search, reused verbatim: it returns `base`
+         untouched when `base` already passes, and otherwise walks the
+         emittable ray toward L=1 NEAREST FIRST, re-clamping chroma into sRGB
+         at every step. Both halves matter — the first is what makes this a
+         no-op for a bright seed, the second is what stops a lifted blue
+         turning purple at the top of the ray.
+
+         `ok: false` is deliberately not an error. Same policy as `rampAt`'s
+         clamp: an unreachable target should render the lightest emittable
+         colour and let the legibility gate REPORT it, rather than turn a
+         contrast miss into a thrown page. */
+      return liftCached(base, against, ref.min);
+    }
   }
+}
+
+/* A lift is a pure function of three values, and it is EXPENSIVE: `emittableRay`
+   runs a 40-step bisection per colour it yields, and a fill being lifted out of
+   a dark-seeded ramp crosses a long stretch of L. Uncached, adding six of these
+   to a preset made `resolveBrand` 72x slower (0.22ms -> 15.6ms), which is not
+   free — this runs on the per-tenant SSR path and under the live editor's
+   slider. Measured, not assumed: the package's own fuzz test timed out first.
+
+   Bounded, and deliberately so. The keys derive from a client-supplied seed, so
+   an unbounded map here is the same unbounded-growth bug the host's tenant memo
+   already documents. Insertion-ordered eviction keeps the working set (six
+   presets x six fills = 36 entries) resident while a fuzz run of arbitrary seeds
+   churns through the tail instead of retaining it. */
+const LIFT_CACHE = new Map<string, string>();
+const LIFT_CACHE_MAX = 512;
+
+function liftCached(base: string, against: string, min: number): string {
+  const key = `${base}|${against}|${min}`;
+  const hit = LIFT_CACHE.get(key);
+  if (hit !== undefined) return hit;
+
+  /* The engine's own duty search, reused verbatim: it returns `base` untouched
+     when `base` already passes, and otherwise walks the emittable ray toward
+     L=1 NEAREST FIRST, re-clamping chroma into sRGB at every step. Both halves
+     matter — the first is what makes this a no-op for a bright seed, the second
+     is what stops a lifted blue turning purple at the top of the ray.
+
+     `ok: false` is deliberately not an error. Same policy as `rampAt`'s clamp:
+     an unreachable target should render the lightest emittable colour and let
+     the legibility gate REPORT it, rather than turn a contrast miss into a
+     thrown page. */
+  const hex = fitContrast(base, [{ against, min }], "lighten").hex;
+
+  if (LIFT_CACHE.size >= LIFT_CACHE_MAX) {
+    const oldest = LIFT_CACHE.keys().next();
+    if (!oldest.done) LIFT_CACHE.delete(oldest.value);
+  }
+  LIFT_CACHE.set(key, hex);
+  return hex;
+}
+
+/**
+ * A family's `darkFloor`, applied to its seed before the dark ramp is built.
+ *
+ * Two differences from the fill lift above, both deliberate.
+ *
+ * It BAILS OUT when the floor is provably unreachable. No colour on a lightening
+ * ray can out-contrast white against the same backdrop, so if white itself
+ * misses the floor, nothing on the ray reaches it and the scan is pure cost —
+ * up to 766 emittable colours, each found by a 40-step bisection, per family.
+ * Measured on a fuzz-shaped preset (every seed random INCLUDING the neutral
+ * one, so the "dark" surface can itself be light): 10.4ms -> 54.1ms per
+ * resolve without this guard, 5.2x, and the package's own fuzz test refused to
+ * finish. Real dark surfaces are near-black and take the cheap path.
+ *
+ * And on failure it returns the seed UNTOUCHED rather than the ray's extreme.
+ * `rampAt` clamps to the ramp's end because that is still an entry someone
+ * designed; walking a ray to its extreme yields a colour nobody chose, and
+ * doing it for a floor that cannot be met buys no legibility while throwing
+ * away the brand. Unmet is exactly the state that existed before `darkFloor`,
+ * and the duty search and `warnings` already report it.
+ */
+function liftSeedToFloor(seed: string, against: string, min: number): string {
+  const base = normalizeHex(seed);
+  if (contrastRatio(base, against) >= min) return base;
+  if (contrastRatio("#ffffff", against) < min) return base;
+  return liftCached(base, against, min);
 }
 
 function resolveRule(name: string, rule: TokenRule, scheme: SchemeName, ctx: Context): string {
@@ -122,6 +215,26 @@ function resolveRule(name: string, rule: TokenRule, scheme: SchemeName, ctx: Con
 
     case "literal":
       return rule.value[scheme];
+
+    case "ink": {
+      if (rule.over.length === 0 || rule.candidates.length === 0) {
+        throw new Error(`${name}: ink rule needs at least one backdrop and one candidate`);
+      }
+      const backdrops = rule.over.map((ref) => resolveRef(ref, scheme, ctx));
+      /* Score on the WORST backdrop, not the average: a gradient label that is
+         legible on one stop and invisible on the other is illegible. */
+      let best: string | undefined;
+      let bestScore = -Infinity;
+      for (const ref of rule.candidates) {
+        const hex = resolveRef(ref, scheme, ctx);
+        const score = Math.min(...backdrops.map((bg) => contrastRatio(hex, bg)));
+        if (score > bestScore) {
+          bestScore = score;
+          best = hex;
+        }
+      }
+      return best!;
+    }
 
     case "channel": {
       /* Read from the pass-1 output, not from the family maps: several channel
@@ -187,17 +300,37 @@ function checkDuties(
  * authoring bugs that would otherwise ship a stylesheet with a hole in it.
  */
 export function resolveBrand(preset: PresetSpec): ResolvedBrand {
-  const ramps: Record<string, string[]> = {};
-  for (const [id, family] of Object.entries(preset.families)) {
-    ramps[id] = buildRamp(family.seed, family.geometry);
-  }
-
+  /* NEUTRALS FIRST, and that ordering is load-bearing now: a family's
+     `darkFloor` is measured against the dark `--surface`, so the surface has to
+     exist before any ramp is built. Before `darkFloor` the two blocks were
+     independent and ramps came first. */
   const neutral: Scheme<Map<string, string>> = { dark: new Map(), light: new Map() };
   for (const scheme of SCHEMES) {
     const spec = preset.neutral[scheme];
     for (const [token, step] of Object.entries(spec.slots)) {
       neutral[scheme].set(token, buildRamp(spec.seed, { seedIndex: 0, steps: [step] })[0]!);
     }
+  }
+
+  const darkSurface = neutral.dark.get("--surface");
+  if (darkSurface === undefined) throw new Error("neutral.dark has no --surface");
+
+  /* One ramp per scheme. Light is ALWAYS the untouched seed: `darkFloor` fixes a
+     dark-window problem and a light window that inherited the lift would render
+     a washed-out brand on white — the exact failure `lightShift: 2` produced
+     when obsidian's answer was applied to a client hue. */
+  const ramps: Scheme<Record<string, string[]>> = { dark: {}, light: {} };
+  for (const [id, family] of Object.entries(preset.families)) {
+    ramps.light[id] = buildRamp(family.seed, family.geometry);
+    /* Returns the seed UNTOUCHED when it already clears the floor, so a preset
+       seeded bright enough — the incumbent, by definition, since the floors are
+       read off its own measured ratios — gets a byte-identical ramp rather than
+       a re-quantised near-miss. */
+    const darkSeed =
+      family.darkFloor === undefined
+        ? family.seed
+        : liftSeedToFloor(family.seed, darkSurface, family.darkFloor);
+    ramps.dark[id] = buildRamp(darkSeed, family.geometry);
   }
 
   /* Every family window is SEARCHED, not declared, in BOTH schemes.
@@ -240,7 +373,7 @@ export function resolveBrand(preset: PresetSpec): ResolvedBrand {
   const families: Scheme<Map<string, string>> = { dark: new Map(), light: new Map() };
   for (const scheme of SCHEMES) {
     for (const [id, family] of Object.entries(preset.families)) {
-      const ramp = ramps[id]!;
+      const ramp = ramps[scheme][id]!;
       const advance = new Map<string, number>();
 
       for (const token of Object.keys(family.slots)) {

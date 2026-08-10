@@ -14,27 +14,17 @@ const literal = (dark: string, light = dark): TokenRule => ({
 });
 
 const FAMILIES = {
-  mint: {
-    seed: "#0D9488",
-    geometry: OBSIDIAN.families.mint!.geometry,
-    slots: OBSIDIAN.families.mint!.slots,
-    lightFollow: OBSIDIAN.families.mint!.lightFollow,
-    darkFollow: { "--mint-dark": "--mint" },
-  },
-  electric: {
-    seed: "#3B82F6",
-    geometry: OBSIDIAN.families.electric!.geometry,
-    slots: OBSIDIAN.families.electric!.slots,
-  },
+  /* Spread the incumbent's family and swap ONLY the seed. Re-listing
+     `geometry`/`slots`/`lightFollow` field by field said the same thing until
+     `darkFloor` was added to FamilySpec — then it silently dropped it here while
+     obsidian had it, which is the whole class of bug a spread closes. */
+  mint: { ...OBSIDIAN.families.mint!, seed: "#0D9488", darkFollow: { "--mint-dark": "--mint" } },
+  electric: { ...OBSIDIAN.families.electric!, seed: "#3B82F6" },
   amber: OBSIDIAN.families.amber!,
   cobalt: OBSIDIAN.families.cobalt!,
   rose: OBSIDIAN.families.rose!,
   sky: OBSIDIAN.families.sky!,
-  cyan: {
-    seed: "#22D3EE",
-    geometry: OBSIDIAN.families.cyan!.geometry,
-    slots: OBSIDIAN.families.cyan!.slots,
-  },
+  cyan: { ...OBSIDIAN.families.cyan!, seed: "#22D3EE" },
 };
 
 const NEUTRAL_DARK = { seed: "#0F172A", slots: OBSIDIAN.neutral.dark.slots };

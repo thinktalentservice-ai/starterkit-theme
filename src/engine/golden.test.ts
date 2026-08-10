@@ -95,19 +95,68 @@ function compare(token: string, scheme: string, expected: string, actual: string
   return { token, scheme, expected, actual, note: "not canonically equal" };
 }
 
+/* ── Intentional divergence from the 2026-08-06 sheet ─────────────────────── */
+
+/* The fixture is a byte-verified snapshot of the hand-authored sheet, and the
+   tests below exist to prove the engine REPRODUCES it. Where we deliberately
+   change the design system, the honest record is not to overwrite the snapshot —
+   that would quietly retire the reproduction guarantee for those tokens and
+   leave nothing saying we ever diverged. It is to list the divergence here, with
+   a reason, and keep the snapshot telling the truth about what shipped.
+
+   Keeping the fixture also keeps `gen:tokens` green: `ROOT_TOKEN_NAMES` is
+   generated FROM this fixture, so an untouched fixture means an untouched ABI
+   list, and the serializer appends unknown names rather than dropping them.
+
+   Both maps are checked in BOTH directions — an entry that no longer diverges
+   fails just as loudly as an undeclared divergence. An acknowledgement nobody
+   removed is how a reverted change comes back to life unnoticed. */
+
+/** Tokens this engine emits that the 2026-08-06 sheet never had. */
+const ADDED_SINCE_FIXTURE = new Map<string, string>([
+  ["--brand-fill", "solid-fill stop, pinned to the dark slot so light fills keep the brand hue"],
+  ["--brand-fill-end", "second stop of --gradient-primary, pinned with the first"],
+  ["--brand-fill-ink", "measured label colour for --gradient-primary (ink vs white)"],
+  ["--amber-fill", "solid-fill stop for --gradient-amber"],
+  ["--amber-fill-end", "second stop of --gradient-amber"],
+  ["--amber-fill-ink", "measured label colour for --gradient-amber"],
+  ["--cobalt-fill", "solid-fill stop for --gradient-cobalt"],
+  ["--cobalt-fill-end", "second stop of --gradient-cobalt"],
+  ["--cobalt-fill-ink", "measured label colour for --gradient-cobalt"],
+]);
+
+/** Tokens whose value we deliberately changed. The RENDERED dark colour of all
+    three is unchanged — only the reference is retargeted, which an old-vs-new
+    resolved diff across all six presets confirmed. Light is what moves. */
+const RETARGETED_SINCE_FIXTURE = new Map<string, string>([
+  ["--gradient-primary", "stops read --brand-fill*, so the light fill stops going olive"],
+  ["--gradient-amber", "stops read --amber-fill*"],
+  ["--gradient-cobalt", "stops read --cobalt-fill*"],
+]);
+
 /* ── The gate ─────────────────────────────────────────────────────────────── */
 
 describe("golden — resolveBrand(obsidian) reproduces the shipped sheet", () => {
-  it("emits exactly the ABI's token set, with nothing missing and nothing extra", () => {
+  it("emits exactly the ABI's token set, plus only the declared additions", () => {
     const abi = new Set<string>(ROOT_TOKEN_NAMES);
     const emitted = new Set(brand.dark.keys());
     expect([...abi].filter((n) => !emitted.has(n)), "in the sheet, not emitted").toEqual([]);
-    expect([...emitted].filter((n) => !abi.has(n)), "emitted, not in the sheet").toEqual([]);
+    expect(
+      [...emitted].filter((n) => !abi.has(n) && !ADDED_SINCE_FIXTURE.has(n)),
+      "emitted, not in the sheet and not declared as an addition",
+    ).toEqual([]);
+    /* The other direction: a declared addition that is no longer emitted is a
+       stale entry, not a free pass. */
+    expect(
+      [...ADDED_SINCE_FIXTURE.keys()].filter((n) => !emitted.has(n)),
+      "declared as added but not emitted — delete the entry",
+    ).toEqual([]);
   });
 
-  it("reproduces every :root value", () => {
+  it("reproduces every :root value except the declared retargets", () => {
     const diffs: Diff[] = [];
     for (const token of ROOT_TOKEN_NAMES) {
+      if (RETARGETED_SINCE_FIXTURE.has(token)) continue;
       const expected = fixtureRoot.get(token);
       const actual = brand.dark.get(token);
       if (expected === undefined || actual === undefined) continue; // covered by the set test
@@ -117,9 +166,10 @@ describe("golden — resolveBrand(obsidian) reproduces the shipped sheet", () =>
     expect(diffs).toEqual([]);
   });
 
-  it("reproduces every computed light-scheme value", () => {
+  it("reproduces every computed light-scheme value except the declared retargets", () => {
     const diffs: Diff[] = [];
     for (const token of ROOT_TOKEN_NAMES) {
+      if (RETARGETED_SINCE_FIXTURE.has(token)) continue;
       const expected = fixtureLightResolved.get(token);
       const actual = brand.light.get(token);
       if (expected === undefined || actual === undefined) continue;
@@ -127,6 +177,19 @@ describe("golden — resolveBrand(obsidian) reproduces the shipped sheet", () =>
       if (diff) diffs.push(diff);
     }
     expect(diffs).toEqual([]);
+  });
+
+  it("every declared retarget actually still differs from the sheet", () => {
+    const stale: string[] = [];
+    for (const token of RETARGETED_SINCE_FIXTURE.keys()) {
+      const expected = fixtureRoot.get(token);
+      const actual = brand.dark.get(token);
+      expect(expected, `${token} is not in the fixture at all`).toBeDefined();
+      if (expected !== undefined && actual !== undefined && canonical(expected) === canonical(actual)) {
+        stale.push(token);
+      }
+    }
+    expect(stale, "declared as retargeted but identical to the sheet — delete the entry").toEqual([]);
   });
 
   it("overrides exactly the tokens the light block overrides", () => {

@@ -82,6 +82,28 @@ export type FamilySpec = {
    *  preset uses this yet: obsidian's dark duties are `enforce: "report"`, not
    *  `"search"`, so its dark-scheme advance is always zero. */
   darkFollow?: Readonly<Record<string, string>>;
+  /**
+   * Minimum contrast the MAIN slot must reach against the dark `--surface`,
+   * applied by lifting the SEED before the dark ramp is built. Dark only; the
+   * light ramp is always built from the untouched seed.
+   *
+   * The dark window is where a client seed hurts, and a duty cannot reach it.
+   * Light darkens a hue and every ramp has a dark end, so the light search
+   * always has somewhere to go. The LIGHT end is capped by the seed: the shared
+   * geometry carries only ~+12 L* above it, so a mid-seeded family contains no
+   * bright entry AT ANY INDEX. Raising a duty's `min` just runs the search to
+   * index 0 — where `--mint-soft` already lives — and three designed steps
+   * collapse onto one colour. Measured before this existed: meridian, solstice
+   * and beacon all rendered `-soft`, `-text` and main as the same hex, and every
+   * duty check passed, because equal values clear a floor just as well as
+   * distinct ones do.
+   *
+   * Set it strictly BELOW the incumbent's own measured ratio. Equal is
+   * numerically fragile: a floor of 10.92 — obsidian's own `--mint` — moved
+   * obsidian's `#b3d335` to `#b3d436`. Below it, `fitContrast` returns the seed
+   * untouched and the incumbent is a no-op by construction, not by luck.
+   */
+  darkFloor?: number;
 };
 
 /**
@@ -95,8 +117,20 @@ export type FamilySpec = {
  * "whatever `--mint` resolved to" is wrong by 12 dE00.
  */
 export type ColorRef =
-  /** Follow an emitted family slot, including any contrast bump it took. */
-  | { k: "slot"; family: string; token: string }
+  /** Follow an emitted family slot, including any contrast bump it took.
+   *
+   *  `from` pins WHICH SCHEME's value is read, in both schemes. Without it a
+   *  slot ref means "this slot, in the current scheme"; with `from: "dark"` it
+   *  means "the colour dark mode renders", everywhere.
+   *
+   *  This is not the same as `{ k: "ramp", shift: 0 }`, and the difference is
+   *  load-bearing: a ramp ref pins a RAMP INDEX, so it misses any contrast bump
+   *  the slot took. In presets whose duties search the dark scheme (every one
+   *  but obsidian), dark `--mint` is NOT the seed index — meridian searches to
+   *  `#578fef` from a `#0b5fff` seed. A fill pinned by index would silently
+   *  restyle those presets' dark gradients while leaving obsidian's alone,
+   *  which is precisely the bug a one-preset check does not catch. */
+  | { k: "slot"; family: string; token: string; from?: SchemeName }
   /** A raw ramp index. `shift` is how far the light scheme advances (default 1;
    *  0 means the token holds the same colour in both schemes, like `--ring`). */
   | { k: "ramp"; family: string; index: number; shift?: number }
@@ -107,9 +141,31 @@ export type ColorRef =
   | { k: "fixed"; hex: string }
   /** Different sources per scheme, e.g. `--topbar-bg` is the void in dark and
    *  the surface in light. */
-  | { k: "scheme"; dark: ColorRef; light: ColorRef };
+  | { k: "scheme"; dark: ColorRef; light: ColorRef }
+  /** Lighten `ref` in OKLCH until it clears `min` against `against`.
+   *
+   *  Returns `ref` UNTOUCHED when it already passes, so adding this to a preset
+   *  whose seed is already bright is a byte-identical no-op — obsidian is
+   *  unaffected by construction rather than by coincidence.
+   *
+   *  Exists because a family's ramp may contain no bright colour AT ALL, and no
+   *  index can reach a colour the ramp lacks. The shared geometry carries only
+   *  ~+12 L* above its seed, so a dark-seeded preset's LIGHTEST step is still
+   *  dark: meridian's whole mint ramp spans L* 60 → 8. A slot ref makes it
+   *  worse, not better — the slot is the output of a contrast SEARCH, and a
+   *  search satisfies a floor and stops, so every dark-seeded preset lands on
+   *  the minimum passing value while obsidian's lime overshoots it by 6:1.
+   *
+   *  This is a FLOOR on the fill, not a target: `fitContrast` walks nearest
+   *  first, so a preset moves as little as it can and keeps its own hue. */
+  | { k: "lift"; ref: ColorRef; against: ColorRef; min: number };
 
 export type Scheme<T> = { dark: T; light: T };
+
+/** The two colour schemes, as a name. Lives here rather than in resolve.ts
+ *  because `ColorRef` constrains it — a type the spec depends on cannot be
+ *  private to the resolver. */
+export type SchemeName = "dark" | "light";
 
 /** One layer of a box-shadow: the geometry stays literal, the colour and alpha
  *  come from the brand. */
@@ -134,7 +190,22 @@ export type TokenRule =
    *  neutral drop-shadows, and the gradient `var()` strings. */
   | { kind: "literal"; value: Scheme<string> }
   /** `R G B` for another token in the same scheme. */
-  | { kind: "channel"; of: string };
+  | { kind: "channel"; of: string }
+  /** MEASURED INK: the candidate that stays most legible across every backdrop
+   *  in `over`, scored on the WORST backdrop (a label spans a whole gradient,
+   *  so the weakest stop is the one that decides).
+   *
+   *  This is the one rule whose output is chosen by measurement rather than
+   *  declared. It exists because "dark ink on a brand fill" is only right when
+   *  the fill is light: obsidian's lime wants ink (11.20:1 vs white's 1.71:1),
+   *  beacon's mid-blue wants white (4.65:1 vs ink's 4.12:1). A preset author
+   *  cannot hard-code either without being wrong for someone, and a CLIENT SEED
+   *  can move a fill across that boundary at runtime, so it cannot be decided
+   *  at authoring time at all.
+   *
+   *  Ties go to the first candidate, so the list is written most-preferred
+   *  first and the result is deterministic. */
+  | { kind: "ink"; over: readonly ColorRef[]; candidates: readonly ColorRef[] };
 
 /** Why a token has the value it has. The golden test reports the histogram, so
  *  "the engine reproduces the sheet" can never be read as a stronger claim than

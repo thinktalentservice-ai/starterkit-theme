@@ -135,24 +135,25 @@ describe("property — invariants across all 6 presets, both schemes", () => {
     { key: "meridian|light|--on-mint/--mint-dark", measured: 1.3002 },
     { key: "meridian|light|--on-amber/--amber-brand", measured: 3.6062 },
     { key: "meridian|light|--on-amber/--amber-deep", measured: 3.6062 },
-    { key: "solstice|dark|--on-mint/--mint-dark", measured: 4.4335 },
+    /* Every `|dark|` `--on-mint` entry that stood here is gone, and beacon's
+       `--mint-dark` one moved 3.09 -> 4.44: `darkFloor` lifts the dark ramp, and
+       a brighter mint is a better backdrop for a near-black ink. The LIGHT rows
+       are untouched, which is the check working — the light ramp is built from
+       the unlifted seed and nothing about it moved. */
     { key: "solstice|light|--on-mint/--mint", measured: 1.9195 },
     { key: "solstice|light|--on-mint/--mint-dark", measured: 1.295 },
     { key: "solstice|light|--on-amber/--amber-brand", measured: 3.6062 },
     { key: "solstice|light|--on-amber/--amber-deep", measured: 3.6062 },
-    { key: "beacon|dark|--on-mint/--mint", measured: 4.0103 },
-    { key: "beacon|dark|--on-mint/--mint-dark", measured: 3.092 },
+    { key: "beacon|dark|--on-mint/--mint-dark", measured: 4.4394 },
     { key: "beacon|dark|--on-amber/--amber-deep", measured: 5.6843 },
     { key: "beacon|light|--on-mint/--mint", measured: 1.3675 },
     { key: "beacon|light|--on-mint/--mint-dark", measured: 1.0144 },
     { key: "beacon|light|--on-amber/--amber-brand", measured: 3.6062 },
     { key: "beacon|light|--on-amber/--amber-deep", measured: 3.6062 },
-    { key: "graphite|dark|--on-mint/--mint-dark", measured: 2.5638 },
     { key: "graphite|light|--on-mint/--mint", measured: 2.5638 },
     { key: "graphite|light|--on-mint/--mint-dark", measured: 1.6458 },
     { key: "graphite|light|--on-amber/--amber-brand", measured: 3.6062 },
     { key: "graphite|light|--on-amber/--amber-deep", measured: 3.6062 },
-    { key: "atlas|dark|--on-mint/--mint-dark", measured: 2.6001 },
     { key: "atlas|light|--on-mint/--mint", measured: 2.6001 },
     { key: "atlas|light|--on-mint/--mint-dark", measured: 1.6374 },
     { key: "atlas|light|--on-amber/--amber-brand", measured: 3.6062 },
@@ -182,11 +183,159 @@ describe("property — invariants across all 6 presets, both schemes", () => {
     expect(checkAgainstLedger(results, ON_PAIR_SHORTFALLS)).toEqual([]);
   });
 
-  const DELTA_L_SHORTFALLS: ReadonlyArray<{ key: string; measured: number }> = [
-    { key: "meridian|dark", measured: 0.0584 },
-    { key: "solstice|dark", measured: 0.0584 },
-    { key: "beacon|dark", measured: 0.0589 },
-  ];
+  it("every solid-fill stop clears its floor against the ink actually chosen for it, in BOTH schemes", () => {
+    /* The floors declared by `fillFloor` in obsidian.ts. Restated here rather
+       than imported on purpose: a test that reads the same constant as the code
+       asserts only that a number equals itself. These are the numbers a reviewer
+       agreed to, and moving one has to be a deliberate edit in two places. */
+    const FLOORS: ReadonlyArray<readonly [string, string, number]> = [
+      ["--brand-fill", "--brand-fill-ink", 8.5],
+      ["--brand-fill-end", "--brand-fill-ink", 5.5],
+      ["--amber-fill", "--amber-fill-ink", 4.5],
+      ["--amber-fill-end", "--amber-fill-ink", 4.5],
+      ["--cobalt-fill", "--cobalt-fill-ink", 4.5],
+      ["--cobalt-fill-end", "--cobalt-fill-ink", 4.5],
+    ];
+    const problems: string[] = [];
+    for (const [id, preset] of PRESET_ENTRIES) {
+      const brand = resolveBrand(preset);
+      for (const scheme of SCHEMES) {
+        const map = scheme === "dark" ? brand.dark : brand.light;
+        for (const [fill, inkTok, min] of FLOORS) {
+          const actual = contrastRatio(map.get(fill)!, map.get(inkTok)!);
+          if (actual < min) {
+            problems.push(`${id}|${scheme}|${fill}: ${actual.toFixed(2)} < ${min}`);
+          }
+        }
+      }
+    }
+    /* No ledger. A shortfall here is not a preset a person tuned badly, it is
+       `lift` failing to do the one thing it exists for — and `fitContrast`
+       reports `ok: false` rather than throwing, so without this assertion an
+       unreachable floor renders as a dim button and nothing says a word. */
+    expect(problems).toEqual([]);
+  });
+
+  it("solid-fill stops are scheme-invariant — the fill is the same colour in light as in dark", () => {
+    /* The whole premise of the split: a fill does not darken in light mode, so
+       a filled button looks identical either way. If one of these ever differs,
+       `from: "dark"` was dropped somewhere and light mode is quietly rendering
+       the searched text colour again — the exact regression this replaced. */
+    const FILLS = [
+      "--brand-fill", "--brand-fill-end", "--brand-fill-ink",
+      "--amber-fill", "--amber-fill-end", "--amber-fill-ink",
+      "--cobalt-fill", "--cobalt-fill-end", "--cobalt-fill-ink",
+    ];
+    const problems: string[] = [];
+    for (const [id, preset] of PRESET_ENTRIES) {
+      const brand = resolveBrand(preset);
+      for (const token of FILLS) {
+        const d = brand.dark.get(token);
+        const l = brand.light.get(token);
+        if (d !== l) problems.push(`${id}|${token}: dark ${d} !== light ${l}`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it("the dark brand ladder is strictly ordered — a searched slot never collapses onto its neighbours", () => {
+    /* THE defect `darkFloor` exists for, and nothing else in this file saw it.
+       `--mint` carries an `enforce: "search"` duty in dark for every preset but
+       the incumbent; the search walks toward light and runs to the ramp's BOUND,
+       index 0 — where `--mint-soft` already sits. Measured before the fix,
+       meridian/solstice/beacon rendered `-soft`, `-text` and `--mint` as ONE hex.
+
+       Every duty check passed while that was true, which is the point: equal
+       values clear a floor exactly as well as distinct ones. Only ordering
+       catches it. Strict `>`, not `>=` — the failure mode is equality. */
+    const LADDERS: ReadonlyArray<readonly string[]> = [
+      ["--mint-soft", "--mint-text", "--mint", "--mint-dark"],
+      ["--electric-light", "--electric-text", "--electric", "--electric-deep"],
+      ["--amber-soft", "--amber-text", "--amber-brand", "--amber-deep"],
+      ["--cobalt-soft", "--cobalt-text", "--cobalt-light", "--cobalt", "--cobalt-deep"],
+    ];
+    const problems: string[] = [];
+    for (const [id, preset] of PRESET_ENTRIES) {
+      const brand = resolveBrand(preset);
+      const surface = brand.dark.get("--surface")!;
+      for (const ladder of LADDERS) {
+        for (let i = 1; i < ladder.length; i++) {
+          const above = contrastRatio(brand.dark.get(ladder[i - 1]!)!, surface);
+          const below = contrastRatio(brand.dark.get(ladder[i]!)!, surface);
+          if (!(above > below)) {
+            problems.push(
+              `${id}|dark ${ladder[i - 1]} (${above.toFixed(2)}) must out-contrast ${ladder[i]} (${below.toFixed(2)})`,
+            );
+          }
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it("every family with a darkFloor clears it at its MAIN slot, and the incumbent is a byte-identical no-op", () => {
+    /* Restated, not imported, for the same reason as the fill floors above. */
+    const FLOORS: ReadonlyArray<readonly [string, string, number]> = [
+      ["mint", "--mint", 8.0],
+      ["electric", "--electric", 4.4],
+      ["cyan", "--cyan", 6.65],
+    ];
+    const problems: string[] = [];
+    for (const [id, preset] of PRESET_ENTRIES) {
+      const brand = resolveBrand(preset);
+      const surface = brand.dark.get("--surface")!;
+      for (const [famId, main, min] of FLOORS) {
+        expect(preset.families[famId]?.darkFloor, `${id} ${famId} must declare a darkFloor`).toBe(min);
+        const actual = contrastRatio(brand.dark.get(main)!, surface);
+        if (actual < min) problems.push(`${id}|dark|${main}: ${actual.toFixed(2)} < ${min}`);
+        /* The floors are read off the incumbent's own measured ratios, rounded
+           DOWN, precisely so its seeds clear them untouched. If one is ever
+           raised to the measured value itself, `fitContrast` re-quantises and
+           obsidian's `#b3d335` becomes `#b3d436` — a diff on the one preset that
+           must never move. This is that guarantee, asserted rather than trusted. */
+        if (id === "obsidian" && brand.dark.get(main) !== preset.families[famId]!.seed.toLowerCase()) {
+          problems.push(`obsidian|${main}: ${brand.dark.get(main)} !== seed ${preset.families[famId]!.seed}`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it("darkFloor moves the DARK ramp only — light-scheme family slots are identical with the floors stripped", () => {
+    /* `darkFloor` lifts a seed, and a seed feeds `buildRamp`. If the two schemes
+       ever share one ramp again, light mode silently gets a washed-out brand on
+       white — the same failure `lightShift: 2` produced when the incumbent's own
+       answer was applied to a client hue. Compare against a floorless twin
+       rather than a snapshot, so this keeps meaning something when a seed moves. */
+    const problems: string[] = [];
+    for (const [id, preset] of PRESET_ENTRIES) {
+      const families = Object.fromEntries(
+        Object.entries(preset.families).map(([famId, f]) => {
+          const { darkFloor: _dropped, ...rest } = f;
+          return [famId, rest];
+        }),
+      );
+      const floorless = resolveBrand({ ...preset, families });
+      const withFloors = resolveBrand(preset);
+      for (const [token, hex] of withFloors.light) {
+        // The solid fills legitimately differ: they pin `from: "dark"`, so a
+        // lifted dark ramp reaches them in BOTH schemes by design.
+        if (token.includes("-fill")) continue;
+        if (floorless.light.get(token) !== hex) {
+          problems.push(`${id}|light ${token}: floorless ${floorless.light.get(token)} !== ${hex}`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  /* Was three entries — meridian/solstice/beacon dark, all ~0.058. Every one of
+     them was the collapse: `--mint` searched to index 0 and `darkFollow` dragged
+     `--mint-dark` up behind it until the pair nearly converged. With the dark
+     ramp built from a lifted seed the search no longer advances, the pair sits
+     at its designed spacing, and a ledger entry that now passes fails this
+     check in the other direction. */
+  const DELTA_L_SHORTFALLS: ReadonlyArray<{ key: string; measured: number }> = [];
 
   it("primary.dark stays distinguishable from primary.main — darkFollow/lightFollow don't let the pair collapse", () => {
     const results: Array<{ key: string; actual: number; min: number }> = [];
