@@ -152,7 +152,33 @@ export function* emittableRay(base: Oklch, limitL: number): Generator<RayStep> {
  * The second is what the exhaustive scan buys over bisection; see
  * SCAN_RESOLUTION.
  */
-export function fitContrast(hex: string, targets: ContrastTarget[], dir: "darken" | "lighten"): FitResult {
+/**
+ * `minChroma` stops the walk once the ray has desaturated past a budget, and
+ * returns the last colour that was still inside it.
+ *
+ * Brightness on a lightening ray is bought in chroma — sRGB has no bright
+ * saturated red or blue — so a caller that wants "as close to this target as the
+ * hue can afford" needs the walk itself to stop, not a bisection wrapped around
+ * eight more walks. Measured: the wrapper version cost ~60ms per cold resolve
+ * against ~4.6ms for one walk.
+ *
+ * `ok` stays honest: a budget-truncated result did NOT meet its target and
+ * reports `false` with its real measured ratios.
+ */
+export type FitOptions = { minChroma?: number };
+
+/* `clampChroma` bisects to ~2e-8 and chroma along a ray is not strictly monotone
+   near the sRGB cusp, so an exact comparison can trip one colour early on
+   jitter rather than on a real desaturation. Sized well above that resolution
+   and far below anything a person could see. */
+const CHROMA_EPS = 1e-4;
+
+export function fitContrast(
+  hex: string,
+  targets: ContrastTarget[],
+  dir: "darken" | "lighten",
+  opts?: FitOptions,
+): FitResult {
   const start = normalizeHex(hex);
   if (targets.length === 0) return { hex: start, ok: true, ratios: [] };
 
@@ -166,8 +192,12 @@ export function fitContrast(hex: string, targets: ContrastTarget[], dir: "darken
      directions without breaking the search. */
   const base = hexToOklch(start);
   let fallback: FitResult = { hex: start, ok: false, ratios: startRatios };
+  const minChroma = opts?.minChroma;
 
   for (const { hex } of emittableRay(base, dir === "darken" ? 0 : 1)) {
+    /* Read off the QUANTIZED hex, matching how ratios are measured in this
+       file — the budget has to be checked against the colour that ships. */
+    if (minChroma !== undefined && hexToOklch(hex).c < minChroma - CHROMA_EPS) break;
     const ratios = measure(hex, targets);
     if (satisfies(ratios, targets)) return { hex, ok: true, ratios };
     fallback = { hex, ok: false, ratios };

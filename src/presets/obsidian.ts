@@ -53,12 +53,23 @@ const SEED_INDEX = { mint: 2, electric: 2, amber: 2, cobalt: 3, rose: 0, sky: 0,
  * measured value re-quantises the incumbent (`min: 10.92` gave `#b3d436` for
  * `#b3d335`), which is a diff on the one preset that must never move.
  *
- * mint stops at 8.0 rather than obsidian's 10.9 because brightness is paid for
- * in chroma and sRGB has no bright saturated red or blue: at 10.9 graphite's red
- * loses 55% of its chroma and meridian's blue 66%, i.e. pastel. 8.0 restores the
- * full four-step ladder (11.6/9.6/8.0/4.5 across every preset) and costs at most
- * 25%. electric and cyan sit at full parity because there it is nearly free —
- * meridian's electric moves .074 -> .073.
+ * A floor alone has to hold for every hue a client might pick, so it ends up set
+ * to whatever the WORST hue can afford. mint's 8.0 is that number, and it left
+ * every preset but this one visibly darker: a reseeded family lands EXACTLY on
+ * 8.0, because `fitContrast` walks nearest-first and stops at the first passing
+ * colour, while obsidian is never lifted and keeps its natural 10.92. ~35% of
+ * contrast and ~0.07 OKLCH L, at every rung, on the colour a brand is
+ * recognised by.
+ *
+ * So mint keeps 8.0 as its guarantee and states the real intent — parity with
+ * the incumbent — as `DARK_TARGET`, bounded by `DARK_CHROMA_RETENTION`. The
+ * floor stays exactly what it was, which is why every preset still clears it.
+ *
+ * electric and cyan get no target for the same reason they are already at
+ * parity: it is nearly free there (meridian's electric moves .074 -> .073), and
+ * every preset's electric already measures at or above obsidian's 4.41
+ * (4.42-5.57), so there is no client-side dimness left to fix. Raising it would
+ * only move OBSIDIAN, which is the one preset that must not move.
  *
  * amber/cobalt/rose/sky carry no floor: they are shared ramps, identical in
  * every preset, so there is no client seed for a floor to protect them from.
@@ -67,6 +78,23 @@ const DARK_FLOOR: Partial<Record<keyof typeof RAMPS, number>> = {
   mint: 8.0,
   electric: 4.4,
   cyan: 6.65,
+};
+
+/* Parity with obsidian's own measured 10.92, rounded DOWN for the same reason
+ * the floors are: a target set EQUAL to the measured value re-quantises the
+ * incumbent (`10.92` gives `#b3d436` for `#b3d335`). At 10.9 obsidian clears it
+ * on the seed and short-circuits before any lift. */
+const DARK_TARGET: Partial<Record<keyof typeof RAMPS, number>> = {
+  mint: 10.9,
+};
+
+/* The price cap on that target, measured from the colour at the FLOOR — see
+ * `darkChromaRetention`, where the seed-relative version of this is written up
+ * as the regression it caused. 20% buys back ~75% of the perceptual gap:
+ * obsidian and atlas reach 10.9 outright at zero chroma cost, and the four
+ * gamut-limited hues stop at 9.25-9.55 instead of going pastel. */
+const DARK_CHROMA_RETENTION: Partial<Record<keyof typeof RAMPS, number>> = {
+  mint: 0.2,
 };
 
 const family = (
@@ -81,6 +109,10 @@ const family = (
   ...(lightShift ? { lightShift } : {}),
   ...(lightFollow ? { lightFollow } : {}),
   ...(DARK_FLOOR[id] !== undefined ? { darkFloor: DARK_FLOOR[id] } : {}),
+  ...(DARK_TARGET[id] !== undefined ? { darkTarget: DARK_TARGET[id] } : {}),
+  ...(DARK_CHROMA_RETENTION[id] !== undefined
+    ? { darkChromaRetention: DARK_CHROMA_RETENTION[id] }
+    : {}),
 });
 
 /* ── Neutral surfaces ─────────────────────────────────────────────────────── */

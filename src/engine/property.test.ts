@@ -27,7 +27,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { contrastRatio } from "../color/contrast";
+import { contrastRatio, fitContrast } from "../color/contrast";
 import { hexToOklch, hexToTriple } from "../color/oklch";
 import { PRESETS } from "../presets/index";
 import { CHANNEL_PAIRS, ROOT_TOKEN_NAMES } from "../tokens/names";
@@ -136,15 +136,17 @@ describe("property — invariants across all 6 presets, both schemes", () => {
     { key: "meridian|light|--on-amber/--amber-brand", measured: 3.6062 },
     { key: "meridian|light|--on-amber/--amber-deep", measured: 3.6062 },
     /* Every `|dark|` `--on-mint` entry that stood here is gone, and beacon's
-       `--mint-dark` one moved 3.09 -> 4.44: `darkFloor` lifts the dark ramp, and
-       a brighter mint is a better backdrop for a near-black ink. The LIGHT rows
-       are untouched, which is the check working — the light ramp is built from
+       `--mint-dark` one has now moved twice, 3.09 -> 4.44 -> 5.41: `darkFloor`
+       lifts the dark ramp and `darkTarget` lifts it further, and a brighter mint
+       is a better backdrop for a near-black ink. It stays on the ledger only
+       because beacon's bar is 7, not 4.5. The LIGHT rows are untouched through
+       both changes, which is the check working — the light ramp is built from
        the unlifted seed and nothing about it moved. */
     { key: "solstice|light|--on-mint/--mint", measured: 1.9195 },
     { key: "solstice|light|--on-mint/--mint-dark", measured: 1.295 },
     { key: "solstice|light|--on-amber/--amber-brand", measured: 3.6062 },
     { key: "solstice|light|--on-amber/--amber-deep", measured: 3.6062 },
-    { key: "beacon|dark|--on-mint/--mint-dark", measured: 4.4394 },
+    { key: "beacon|dark|--on-mint/--mint-dark", measured: 5.4111 },
     { key: "beacon|dark|--on-amber/--amber-deep", measured: 5.6843 },
     { key: "beacon|light|--on-mint/--mint", measured: 1.3675 },
     { key: "beacon|light|--on-mint/--mint-dark", measured: 1.0144 },
@@ -301,6 +303,58 @@ describe("property — invariants across all 6 presets, both schemes", () => {
     expect(problems).toEqual([]);
   });
 
+  it("darkTarget reaches parity or stops ON its chroma budget — never somewhere arbitrary, never below the floor", () => {
+    /* The floor above is a hard invariant. This one is not: a hue sRGB cannot
+       carry brightly stops short of the target on purpose, so "did it hit the
+       target" is the wrong question and the ledger shape used elsewhere in this
+       file would be the wrong answer — it would record whatever came out.
+
+       The real claim is that a shortfall is CAUSED BY THE BUDGET. So every
+       family either reaches its target, or its rendered chroma sits on the
+       budget line — within one ray step of `(1 - retention)` times the chroma at
+       the floor. Anything between those two states means the climb stopped for a
+       reason nobody declared.
+
+       The floor comparison is the regression guard. Measuring the budget from
+       the SEED instead of from the floor shipped once and walked meridian
+       BACKWARDS, 8.05 -> 5.06 — a guard that made the brand darker than no guard
+       at all. A target can never leave a family worse than its floor. */
+    const RAY_STEP = 0.006; // one emittable step in OKLCH chroma, measured
+    const problems: string[] = [];
+    for (const [id, preset] of PRESET_ENTRIES) {
+      const brand = resolveBrand(preset);
+      const surface = brand.dark.get("--surface")!;
+      for (const [famId, family] of Object.entries(preset.families)) {
+        const { darkFloor, darkTarget, darkChromaRetention: retention } = family;
+        if (darkFloor === undefined || darkTarget === undefined) continue;
+        const main = `--${famId}`;
+        const rendered = brand.dark.get(main)!;
+        const actual = contrastRatio(rendered, surface);
+
+        if (actual + 0.01 < darkFloor) {
+          problems.push(`${id}|${main}: ${actual.toFixed(2)} is BELOW its floor ${darkFloor}`);
+          continue;
+        }
+        if (actual + 0.05 >= darkTarget) continue; // reached parity
+
+        if (retention === undefined) {
+          problems.push(`${id}|${main}: ${actual.toFixed(2)} < target ${darkTarget} with no budget to explain it`);
+          continue;
+        }
+        const atFloor = fitContrast(family.seed, [{ against: surface, min: darkFloor }], "lighten").hex;
+        const budget = hexToOklch(atFloor).c * (1 - retention);
+        const spent = hexToOklch(rendered).c;
+        if (Math.abs(spent - budget) > RAY_STEP) {
+          problems.push(
+            `${id}|${main}: stopped at ${actual.toFixed(2)} with chroma ${spent.toFixed(4)}, ` +
+              `but its budget is ${budget.toFixed(4)} — it did not stop ON the budget`,
+          );
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
   it("darkFloor moves the DARK ramp only — light-scheme family slots are identical with the floors stripped", () => {
     /* `darkFloor` lifts a seed, and a seed feeds `buildRamp`. If the two schemes
        ever share one ramp again, light mode silently gets a washed-out brand on
@@ -311,16 +365,28 @@ describe("property — invariants across all 6 presets, both schemes", () => {
     for (const [id, preset] of PRESET_ENTRIES) {
       const families = Object.fromEntries(
         Object.entries(preset.families).map(([famId, f]) => {
-          const { darkFloor: _dropped, ...rest } = f;
+          /* The target and its budget come out too. Both are inert without a
+             floor, but a twin that still carries half the machinery is not a
+             control. */
+          const { darkFloor: _f, darkTarget: _t, darkChromaRetention: _c, ...rest } = f;
           return [famId, rest];
         }),
       );
       const floorless = resolveBrand({ ...preset, families });
       const withFloors = resolveBrand(preset);
       for (const [token, hex] of withFloors.light) {
-        // The solid fills legitimately differ: they pin `from: "dark"`, so a
-        // lifted dark ramp reaches them in BOTH schemes by design.
-        if (token.includes("-fill")) continue;
+        /* Scheme-invariant tokens legitimately differ: they pin `from: "dark"`,
+           so a lifted dark ramp reaches them in BOTH schemes by design.
+
+           DERIVED from the floorless twin, not a name pattern. The old
+           `token.includes("-fill")` also exempted `--brand-fill-end`,
+           `--amber-fill`, every `*-fill-ink` — nine tokens — so a lift leaking
+           into any of them read as expected behaviour, and any future token
+           merely NAMED `*-fill` would inherit the exemption without anyone
+           deciding it should. Asking the twin "is this token scheme-invariant
+           before any floor exists?" is the actual property the exemption means,
+           and it stays correct when the fill set changes. */
+        if (floorless.light.get(token) === floorless.dark.get(token)) continue;
         if (floorless.light.get(token) !== hex) {
           problems.push(`${id}|light ${token}: floorless ${floorless.light.get(token)} !== ${hex}`);
         }

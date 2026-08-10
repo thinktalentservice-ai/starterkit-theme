@@ -102,8 +102,54 @@ export type FamilySpec = {
    * numerically fragile: a floor of 10.92 — obsidian's own `--mint` — moved
    * obsidian's `#b3d335` to `#b3d436`. Below it, `fitContrast` returns the seed
    * untouched and the incumbent is a no-op by construction, not by luck.
+   *
+   * This is a GUARANTEE and is always met (given a reachable target). Where a
+   * family also declares `darkTarget`, this is the value it falls back to.
    */
   darkFloor?: number;
+  /**
+   * A brighter ratio to reach for when the hue can afford it, bounded by
+   * `darkChromaRetention`. Above `darkFloor`, never instead of it.
+   *
+   * `darkFloor` alone has to be one number for every hue a client might pick,
+   * so it gets set to whatever the WORST hue can afford — and then the hues
+   * that could have done better are held down with it. Measured: at mint's
+   * floor of 8.0, a reseeded family lands EXACTLY on 8.0, because `fitContrast`
+   * walks nearest-first and stops at the first passing colour, while the
+   * incumbent's lime is never lifted at all and keeps its natural 10.92. That is
+   * ~35% of contrast and ~0.07 OKLCH L, at every rung of the ladder, on the one
+   * colour a brand is actually recognised by.
+   *
+   * Splitting the two lets the floor stay the conservative promise and the
+   * target state the intent. Obsidian and atlas reach 10.9; meridian, solstice,
+   * beacon and graphite stop between 9.25 and 9.55 where sRGB stops them.
+   */
+  darkTarget?: number;
+  /**
+   * Fraction of the OKLCH chroma AT `darkFloor` that the climb from `darkFloor`
+   * to `darkTarget` may spend (0.20 = 20%).
+   *
+   * Brightness is paid for in chroma and sRGB has no bright saturated red or
+   * blue, so an unbounded target turns a client's brand pastel: at 10.9,
+   * graphite's red and meridian's blue give up 37-39% of the chroma they render
+   * today. Lime and teal pay nothing for the same brightness. One floor for
+   * everyone therefore taxes the hues that could have had parity for free,
+   * which is what this budget exists to stop.
+   *
+   * MEASURED FROM THE FLOOR, NOT FROM THE SEED, and that is not a detail. A
+   * client seed usually sits far below its floor already — meridian's `#0B5FFF`
+   * measures 3.56 on its own dark surface — so the floor has spent 19-48% of the
+   * seed's chroma before any of this runs. A seed-relative budget therefore
+   * budgets the lift that already shipped: at 20% it walked meridian backwards
+   * from 8.05 to 5.06, making the brand darker than no guard at all. Anchored to
+   * the floor, the floor is a promise the budget cannot cross and the worst case
+   * is "no improvement".
+   *
+   * A near-grey seed has almost no chroma to spend, so a relative budget barely
+   * constrains it — correct for a neutral, and a reason not to point an
+   * ambitious `darkTarget` at a low-chroma family.
+   */
+  darkChromaRetention?: number;
 };
 
 /**

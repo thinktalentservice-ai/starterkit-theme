@@ -138,8 +138,8 @@ function resolveRef(ref: ColorRef, scheme: SchemeName, ctx: Context): string {
 const LIFT_CACHE = new Map<string, string>();
 const LIFT_CACHE_MAX = 512;
 
-function liftCached(base: string, against: string, min: number): string {
-  const key = `${base}|${against}|${min}`;
+function liftCached(base: string, against: string, min: number, minChroma?: number): string {
+  const key = `${base}|${against}|${min}|${minChroma ?? ""}`;
   const hit = LIFT_CACHE.get(key);
   if (hit !== undefined) return hit;
 
@@ -153,7 +153,7 @@ function liftCached(base: string, against: string, min: number): string {
      an unreachable target should render the lightest emittable colour and let
      the legibility gate REPORT it, rather than turn a contrast miss into a
      thrown page. */
-  const hex = fitContrast(base, [{ against, min }], "lighten").hex;
+  const hex = fitContrast(base, [{ against, min }], "lighten", { minChroma }).hex;
 
   if (LIFT_CACHE.size >= LIFT_CACHE_MAX) {
     const oldest = LIFT_CACHE.keys().next();
@@ -183,12 +183,82 @@ function liftCached(base: string, against: string, min: number): string {
  * doing it for a floor that cannot be met buys no legibility while throwing
  * away the brand. Unmet is exactly the state that existed before `darkFloor`,
  * and the duty search and `warnings` already report it.
+ *
+ * `target` and `retention` add a SECOND, optional stage on top of that floor,
+ * and the two-stage shape is the whole correctness argument.
+ *
+ * The budget is measured from the colour AT THE FLOOR, never from the raw seed.
+ * A client seed is typically far below its floor already — meridian's `#0B5FFF`
+ * measures 3.56 on its own surface — so the existing floor has spent 19-48% of
+ * that seed's chroma before this code is reached. Budgeting against the seed
+ * budgets the lift that already shipped: at 20% it walked meridian BACKWARDS
+ * from 8.05 to 5.06, i.e. the guard made the brand darker than doing nothing.
+ * Measuring from the floor makes the floor a guarantee the budget cannot cross,
+ * so the worst case of this whole mechanism is "no improvement", never a
+ * regression.
+ *
+ * The climb is a SECOND ray walk, not a bisection over eight: `minChroma` stops
+ * `fitContrast` at the budget and hands back the brightest colour still inside
+ * it. So a cold floored-and-targeted family costs two walks — one to the floor,
+ * one to the aspiration — both bounded and both memoized. The bisection version
+ * was written first and measured ~60ms per cold resolve against ~2.1ms for all
+ * six presets this way.
+ *
+ * The floor cannot be undercut by the climb: the budget is a fraction of the
+ * chroma AT the floor, so the floor colour itself always satisfies it, and a
+ * nearest-first walk reaches the floor before anything beyond it. That is the
+ * argument — but the return compares against the floor colour's OWN measured
+ * ratio rather than against `min`, because the two differ by quantisation and
+ * only the former makes "never worse than the floor" exactly true.
  */
-function liftSeedToFloor(seed: string, against: string, min: number): string {
+function liftSeedToFloor(
+  seed: string,
+  against: string,
+  min: number,
+  target?: number,
+  retention?: number,
+): string {
   const base = normalizeHex(seed);
-  if (contrastRatio(base, against) >= min) return base;
-  if (contrastRatio("#ffffff", against) < min) return base;
-  return liftCached(base, against, min);
+  const seedRatio = contrastRatio(base, against);
+  const aspiration = target !== undefined && target > min ? target : min;
+
+  /* Clears everything asked of it — the incumbent's case, and the reason it is
+     a byte-identical no-op by construction rather than by luck. */
+  if (seedRatio >= aspiration) return base;
+
+  const white = contrastRatio("#ffffff", against);
+  if (white < min) return base;
+
+  const floored = seedRatio >= min ? base : liftCached(base, against, min);
+
+  /* No aspiration, no budget, or an aspiration nothing on the ray can reach:
+     ship the guaranteed floor. Bailing on an unreachable target matters for the
+     same reason the `white < min` guard does — it is the difference between a
+     cheap path and 766 emittable colours at a 40-step bisection each. */
+  if (retention === undefined || aspiration === min || white < aspiration) return floored;
+
+  /* An authoring bug, not a client input: `darkChromaRetention` is a FamilySpec
+     field and no tenant document can reach it. Unvalidated, `2` or `NaN` yields a
+     negative-or-NaN guard that every colour on the ray satisfies, silently
+     disabling the budget and shipping the pastel it exists to prevent — measured:
+     retention `2` takes meridian to 10.905 at chroma 0.083. Throwing matches how
+     this file already treats a preset missing its `--surface`. */
+  if (!Number.isFinite(retention) || retention <= 0 || retention >= 1) {
+    throw new Error(`darkChromaRetention must be a number in (0, 1), got ${retention}`);
+  }
+
+  const flooredChroma = hexToOklch(floored).c;
+  const guard = flooredChroma > 0 ? flooredChroma * (1 - retention) : undefined;
+  const climbed = liftCached(base, against, aspiration, guard);
+
+  /* A truncated climb reports the brightest in-budget colour; an untruncated one
+     reports the target. Either way it should be at or above the floor — but the
+     floor is the promise, so it is asserted rather than assumed, and asserted
+     against what the floor colour ACTUALLY measures rather than against `min`.
+     Those differ by quantisation: a floor colour landing at 8.05 for a declared
+     8.0 would let a climb returning 8.01 through as "at least the floor" while
+     being visibly dimmer than the colour it replaced. */
+  return contrastRatio(climbed, against) >= contrastRatio(floored, against) ? climbed : floored;
 }
 
 function resolveRule(name: string, rule: TokenRule, scheme: SchemeName, ctx: Context): string {
@@ -329,7 +399,13 @@ export function resolveBrand(preset: PresetSpec): ResolvedBrand {
     const darkSeed =
       family.darkFloor === undefined
         ? family.seed
-        : liftSeedToFloor(family.seed, darkSurface, family.darkFloor);
+        : liftSeedToFloor(
+            family.seed,
+            darkSurface,
+            family.darkFloor,
+            family.darkTarget,
+            family.darkChromaRetention,
+          );
     ramps.dark[id] = buildRamp(darkSeed, family.geometry);
   }
 

@@ -229,4 +229,73 @@ describe("fitContrast", () => {
     const fit = fitContrast("#B3D335", [], "darken");
     expect(fit).toEqual({ hex: "#b3d335", ok: true, ratios: [] });
   });
+
+  describe("minChroma", () => {
+    /* meridian's seed on its own dark surface: a vivid blue that cannot reach a
+       high contrast target without going pastel, which is the entire reason the
+       option exists. */
+    const SEED = "#0B5FFF";
+    const SURFACE = "#0e1522";
+
+    it("is inert when absent — the 2026-08-06 hand-fix is byte-identical", () => {
+      const withOpt = fitContrast("#8A9F2A", [{ against: "#ffffff", min: 4.5 }], "darken", {});
+      const without = fitContrast("#8A9F2A", [{ against: "#ffffff", min: 4.5 }], "darken");
+      expect(withOpt).toEqual(without);
+    });
+
+    it("is inert when set below anything the walk would reach", () => {
+      const bounded = fitContrast(SEED, [{ against: SURFACE, min: 8 }], "lighten", { minChroma: 0 });
+      const plain = fitContrast(SEED, [{ against: SURFACE, min: 8 }], "lighten");
+      expect(bounded).toEqual(plain);
+    });
+
+    it("truncates the walk and returns the BRIGHTEST colour still inside the budget", () => {
+      /* Unbounded, reaching 10.9 costs this hue most of its chroma. Bounded at
+         the chroma it has at 8.0, the walk stops partway and reports honestly. */
+      const atFloor = fitContrast(SEED, [{ against: SURFACE, min: 8 }], "lighten").hex;
+      const budget = hexToOklch(atFloor).c * 0.8;
+
+      const unbounded = fitContrast(SEED, [{ against: SURFACE, min: 10.9 }], "lighten");
+      expect(unbounded.ok).toBe(true);
+      expect(hexToOklch(unbounded.hex).c).toBeLessThan(budget);
+
+      const bounded = fitContrast(SEED, [{ against: SURFACE, min: 10.9 }], "lighten", {
+        minChroma: budget,
+      });
+      // Missed the target, and says so rather than certifying a value it did not reach.
+      expect(bounded.ok).toBe(false);
+      expect(hexToOklch(bounded.hex).c).toBeGreaterThanOrEqual(budget - 1e-3);
+      // Still climbed well past the floor it started from.
+      const climbed = contrastRatio(bounded.hex, SURFACE);
+      expect(climbed).toBeGreaterThan(contrastRatio(atFloor, SURFACE));
+      expect(climbed).toBeLessThan(10.9);
+    });
+
+    it("returns the input untouched when even the first ray step is over budget", () => {
+      /* Above the seed's OWN chroma, so nothing on a lightening ray can satisfy
+         it. The result is the input, not the ray's extreme — same policy as
+         `liftSeedToFloor`'s unreachable-floor bail: a colour nobody chose is
+         worse than no change. */
+      const bounded = fitContrast(SEED, [{ against: SURFACE, min: 10.9 }], "lighten", {
+        minChroma: hexToOklch(SEED).c * 1.05,
+      });
+      expect(bounded.hex).toBe("#0b5fff");
+      expect(bounded.ok).toBe(false);
+    });
+
+    it("tolerates one step of ray jitter rather than stopping on it", () => {
+      /* `clampChroma` bisects to ~2e-8 and chroma is not strictly monotone near
+         the sRGB cusp, so an exact comparison would end the walk on numerical
+         noise. Budgeted at exactly the seed's chroma, the walk is allowed the
+         first step and no more — CHROMA_EPS working, asserted rather than
+         assumed. */
+      const bounded = fitContrast(SEED, [{ against: SURFACE, min: 10.9 }], "lighten", {
+        minChroma: hexToOklch(SEED).c,
+      });
+      expect(bounded.ok).toBe(false);
+      expect(contrastRatio(bounded.hex, SURFACE)).toBeLessThan(
+        contrastRatio(SEED, SURFACE) + 0.15,
+      );
+    });
+  });
 });
