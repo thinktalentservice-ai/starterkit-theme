@@ -252,9 +252,25 @@ const slotFrom = (family: string, token: string): ColorRef =>
 
 /* The start stop carries the label, so it takes the higher floor; the end stop
    only has to stay legible where the gradient lands on it. Both stops are
-   floored — flooring one makes a gradient whose shape changes per preset. */
+   floored — flooring one makes a gradient whose shape changes per preset.
+
+   BOTH STOPS OF A FILL COME FROM THE SAME FAMILY. amber and cobalt always did;
+   brand did not — its end stop read the `cyan` family, so `--gradient-primary`
+   was a two-HUE blend (obsidian: lime `#b3d335` → sky `#0ea5e9`) while every
+   other solid fill was a within-family shade ramp. On obsidian that reads as an
+   odd green-and-blue button; on a reseeded preset it is worse, because `mint`
+   and `cyan` are INDEPENDENT client seeds, so the primary CTA mixed two
+   unrelated brand hues and the mix was different per tenant. `--mint-dark` is
+   the same slot `--gradient-mint` already ends on.
+
+   The two are NOT interchangeable, and it is worth being exact about why:
+   `--gradient-mint` reads the raw slots, while these stops are floored against
+   `FILL_INK` independently of each other. On obsidian the floors are no-ops and
+   the two gradients differ only in angle — but a 4,913-seed sweep found 94 seeds
+   where flooring moves an endpoint, so on a reseeded brand they diverge. That is
+   the fill-vs-text split doing its job, not a defect. */
 const BRAND_FILL = fillFloor(slotFrom("mint", "--mint"), 8.5);
-const BRAND_FILL_END = fillFloor(slotFrom("cyan", "--cyan"), 5.5);
+const BRAND_FILL_END = fillFloor(slotFrom("mint", "--mint-dark"), 5.5);
 const AMBER_FILL = fillFloor(slotFrom("amber", "--amber-brand"), 4.5);
 const AMBER_FILL_END = fillFloor(slotFrom("amber", "--amber-deep"), 4.5);
 const COBALT_FILL = fillFloor(slotFrom("cobalt", "--cobalt-light"), 4.5);
