@@ -123,15 +123,20 @@ const ADDED_SINCE_FIXTURE = new Map<string, string>([
   ["--cobalt-fill", "solid-fill stop for --gradient-cobalt"],
   ["--cobalt-fill-end", "second stop of --gradient-cobalt"],
   ["--cobalt-fill-ink", "measured label colour for --gradient-cobalt"],
+  ["--electric-fill", "second stop of --gradient-avatar, floored like the other fills"],
+  ["--gradient-avatar-ink", "measured initials colour for --gradient-avatar (ink vs white)"],
 ]);
 
-/** Tokens whose value we deliberately changed. The RENDERED dark colour of all
-    three is unchanged — only the reference is retargeted, which an old-vs-new
-    resolved diff across all six presets confirmed. Light is what moves. */
+/** Tokens whose value we deliberately changed. For the three `*-fill` retargets
+    the RENDERED dark colour is unchanged — only the reference moved, which an
+    old-vs-new resolved diff across all six presets confirmed, and light is what
+    moves. `--gradient-avatar` is the exception and is a real recomposition: it
+    swaps one stop family outright, so both schemes render differently. */
 const RETARGETED_SINCE_FIXTURE = new Map<string, string>([
   ["--gradient-primary", "stops read --brand-fill*, so the light fill stops going olive"],
   ["--gradient-amber", "stops read --amber-fill*"],
   ["--gradient-cobalt", "stops read --cobalt-fill*"],
+  ["--gradient-avatar", "recomposed as --cobalt-fill -> --electric-fill; the sheet paired the searched --electric -> --mint"],
 ]);
 
 /* ── The gate ─────────────────────────────────────────────────────────────── */

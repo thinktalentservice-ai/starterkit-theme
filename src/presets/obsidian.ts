@@ -276,6 +276,20 @@ const AMBER_FILL_END = fillFloor(slotFrom("amber", "--amber-deep"), 4.5);
 const COBALT_FILL = fillFloor(slotFrom("cobalt", "--cobalt-light"), 4.5);
 const COBALT_FILL_END = fillFloor(slotFrom("cobalt", "--cobalt-deep"), 4.5);
 
+/* The avatar is the ONE fill that is deliberately a two-HUE blend, and the
+   paragraph above is the reason that needs saying out loud rather than being
+   discovered later as a bug. `--gradient-primary` was un-blended precisely
+   because a CTA mixing two independent client seeds renders differently per
+   tenant. The avatar keeps the blend because it is decorative identity rather
+   than an action surface, and because it ALREADY was one — the sheet paired
+   `--electric` with `--mint`. What changes is that both stops are now floored
+   fills instead of searched text slots, so the initials on top are measured
+   rather than assumed.
+
+   There is no `--electric-fill-end`: the avatar needs one electric stop and a
+   second would be a token nothing reads. */
+const ELECTRIC_FILL = fillFloor(slotFrom("electric", "--electric"), 4.5);
+
 /** Alpha-on-overlay: the same veil in both schemes, white over dark and black
  *  over light. Left as a literal — as the button package had it — a light-first
  *  brand gets a white wash on white. */
@@ -305,6 +319,7 @@ const TOKENS: Record<string, TokenRule> = {
   "--amber-fill-end": { kind: "solid", ref: AMBER_FILL_END },
   "--cobalt-fill": { kind: "solid", ref: COBALT_FILL },
   "--cobalt-fill-end": { kind: "solid", ref: COBALT_FILL_END },
+  "--electric-fill": { kind: "solid", ref: ELECTRIC_FILL },
 
   /* The label that sits ON each fill, MEASURED rather than declared — see the
      `ink` rule in spec.ts. `FILL_INK` first, so a tie prefers ink; white wins
@@ -334,6 +349,14 @@ const TOKENS: Record<string, TokenRule> = {
   "--cobalt-fill-ink": {
     kind: "ink",
     over: [COBALT_FILL, COBALT_FILL_END],
+    candidates: [FILL_INK, FILL_WHITE],
+  },
+  /* The avatar initials. Measured over BOTH of its stops, which come from two
+     different families — so this is the one ink that has to survive a hue
+     change along the gradient, not just a shade ramp. */
+  "--gradient-avatar-ink": {
+    kind: "ink",
+    over: [COBALT_FILL, ELECTRIC_FILL],
     candidates: [FILL_INK, FILL_WHITE],
   },
 
@@ -556,7 +579,11 @@ const TOKENS: Record<string, TokenRule> = {
   "--gradient-cobalt": solidLiteral(
     "linear-gradient(145deg, var(--cobalt-fill), var(--cobalt-fill-end))",
   ),
-  "--gradient-avatar": solidLiteral("linear-gradient(135deg, var(--electric), var(--mint))"),
+  /* Avatar reads COBALT -> ELECTRIC, and reads them as FILLS. Both stops are
+     scheme-invariant, so the pair cannot split apart in light mode the way one
+     floored stop paired with one searched stop would. The label on top is
+     `--gradient-avatar-ink`, measured over both. */
+  "--gradient-avatar": solidLiteral("linear-gradient(135deg, var(--cobalt-fill), var(--electric-fill))"),
   "--gradient-progress": solidLiteral("linear-gradient(90deg, var(--electric), var(--mint))"),
 
   /* Fixed overlay constants — no `--white` / `--black` base exists, by design. */

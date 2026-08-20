@@ -170,7 +170,7 @@
   --gradient-amber: linear-gradient(135deg, var(--amber-fill), var(--amber-fill-end));
   --gradient-danger: linear-gradient(135deg, var(--rose), var(--rose-deep));
   --gradient-cobalt: linear-gradient(145deg, var(--cobalt-fill), var(--cobalt-fill-end));
-  --gradient-avatar: linear-gradient(135deg, var(--electric), var(--mint));
+  --gradient-avatar: linear-gradient(135deg, var(--cobalt-fill), var(--electric-fill));
   --gradient-progress: linear-gradient(90deg, var(--electric), var(--mint));
   --shadow-dropdown: 0 8px 32px rgba(0, 0, 0, 0.40);
   --hover-overlay: rgba(255, 255, 255, 0.06);
@@ -183,6 +183,8 @@
   --cobalt-fill: #37a3fe;
   --cobalt-fill-end: #1f7bde;
   --cobalt-fill-ink: #0b0f19;
+  --electric-fill: #8b5cf6;
+  --gradient-avatar-ink: #0b0f19;
 }
 
 [data-mui-color-scheme="light"] {
