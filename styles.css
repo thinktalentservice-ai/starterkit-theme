@@ -27,7 +27,7 @@ body {
   to   { opacity: 1; transform: scale(1); }
 }
 @keyframes ib-glow-pulse {
-  0%, 100% { box-shadow: var(--glow-mint); }
+  0%, 100% { box-shadow: var(--glow-primary); }
   50%       { box-shadow: none; }
 }
 @keyframes ib-float {
@@ -64,9 +64,14 @@ body {
               box-shadow   0.25s var(--ease-entrance),
               transform    0.25s var(--ease-entrance);
 }
+/* --primary-border / --primary-bg. These read --accent-border / --accent-fill
+   until the rename, and those names still EXIST — they just mean a different
+   colour now. The old --accent-* block was an alias of the primary family;
+   --accent is the third brand hue. A pure find-and-replace would have left this
+   rule resolving, painting, and quietly wearing the wrong family. */
 .glass-card:hover {
-  border-color: var(--accent-border);
-  background: var(--accent-fill);
+  border-color: var(--primary-border);
+  background: var(--primary-bg);
   box-shadow: var(--shadow-card-hover);
   transform: translateY(-3px);
 }
@@ -98,87 +103,115 @@ body {
   --ic-card-focus-ring: var(--fg1);
 }
 
-/* Label colour on the two gradients that are light enough to lose white text.
-   The package defaults `--ic-on-grad` to #fff, which is right on cobalt and
-   violet and wrong on mint and amber — see the measurements at `--on-brand-ink`.
+/* THE PER-TONE GRADIENT-INK OVERRIDES USED TO LIVE HERE. All of them are gone,
+   and their absence is the clearest single measure of what the semantic-role
+   ABI bought.
 
-   Cobalt and violet keep white: white-on-cobalt is the design system's own
-   signature and changing it is a brand decision, not a bug fix. Cobalt's light
-   end still measures low contrast — same caveat, gradient fills are for
-   headings and short labels. */
-.ic-card[data-fill="gradient"][data-tone="mint"],
-.ic-card[data-fill="gradient"][data-tone="amber"] {
-  --ic-on-grad: var(--on-brand-ink);
-}
+   There were four rules and about forty lines of reasoning. The card package
+   defaulted `--ic-on-grad` to `#fff`, which was right on two of the six hues
+   and wrong on the others, so this layer named the exceptions; then it had to
+   name the NON-exceptions too, because a custom property inherits and a
+   `var(--x, #fff)` fallback applies to an absent property rather than an
+   inherited one, so a blue card nested inside a mint one silently drew
+   near-black on blue; and then one tone needed a per-SCHEME flip on top,
+   because raising light `--mint` for focus contrast pushed `--mint-dark` low
+   enough that the ink failed on it.
 
-/* Custom properties inherit, and the package's other gradient tones only read
-   `var(--ic-on-grad, #fff)` — a fallback applies to an ABSENT property, not an
-   inherited one. So a cobalt card nested inside a mint card would silently
-   inherit the ink above and draw near-black on cobalt. Every gradient tone
-   states its own answer rather than relying on the package's fallback. */
-.ic-card[data-fill="gradient"][data-tone="blue"],
-.ic-card[data-fill="gradient"][data-tone="violet"],
-.ic-card[data-fill="gradient"][data-tone="danger"] {
-  --ic-on-grad: #fff;
-}
+   None of that was wrong. All of it was a workaround for one missing token:
+   an ink that follows the brand. `--<f>-on-solid` is that token. The theme
+   engine resolves it per family by scoring candidate inks against the WORSE of
+   the fill's two stops, the card package publishes it as `--ic-ink` for every
+   tone including `neutral`, and its gradient fill reads
+   `color: var(--ic-on-grad, var(--ic-ink))`. Every tone states its own answer,
+   so nothing inherits the wrong one; the answer is measured, so no hue is an
+   exception; and it is per scheme by construction, so no scheme is either.
 
-/* Light-mode mint is the one tone where the ink/white answer genuinely differs by
-   scheme, so it is the one place that overrides per scheme rather than per tone.
-
-   Ink was chosen above because it wins at almost every endpoint. Raising light
-   `--mint` for focus/text contrast pushes `--mint-dark` low enough that ink on
-   it fails, while white at those same endpoints passes body text at both. So
-   this is the scheme flip `--on-brand-ink` warns about — taken deliberately,
-   because the alternative is a measured WCAG failure rather than a stylistic
-   inconsistency.
-
-   Dark mode keeps ink: its mint ramp is far too light for white. */
-[data-mui-color-scheme="light"] .ic-card[data-fill="gradient"][data-tone="mint"],
-[data-theme="light"] .ic-card[data-fill="gradient"][data-tone="mint"] {
-  --ic-on-grad: #fff;
-}
+   `--ic-on-grad` survives as the documented consumer override. Setting it here
+   would only restate what the package already computes — which is how a host
+   override and a package default drift apart. */
 
 /* ── Mesh background utilities ──
-   KNOWN LIMITATION, not an oversight: these carry obsidian-specific hardcoded
-   rgba() colours (violet / mint / amber) and render the same mesh regardless of
-   which preset is active. Tokenizing them into `var()` is a real design
-   decision — is a client's brand hue supposed to bleed into a background wash,
-   or should the wash stay a fixed neutral accent? — and it is out of this
-   phase's scope, which is mechanical extraction, not a redesign. */
+   These carried hardcoded rgba() stops sampled from one preset, and rendered
+   the same wash whichever brand was active — documented as a known limitation
+   whose fix was "a real design decision, out of this phase's scope". This phase
+   IS that decision, and the answer is that a background wash SHOULD follow the
+   brand: a client who reseeds their primary and still sees the old violet
+   bleeding through the page has not been rebranded.
+
+   Driven off `--<f>-channel` rather than `--<f>` so the alpha stays a literal
+   here. The channels are the RGB triple of each family's non-text mark, which
+   is the right anchor for a wash — the mark is the family's recognisable
+   colour, and nothing is read against these. */
 .mesh-bg {
   background-color: var(--void);
   background-image:
-    radial-gradient(ellipse 80% 55% at 5% 15%,  rgba(124, 58, 237, 0.18) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 45% at 95% 85%, rgba(179, 211, 53, 0.12)  0%, transparent 55%),
-    radial-gradient(ellipse 45% 35% at 55% -5%, rgba(245, 158, 11, 0.07) 0%, transparent 50%);
+    radial-gradient(ellipse 80% 55% at 5% 15%,  rgb(var(--secondary-channel) / 0.18) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 95% 85%, rgb(var(--primary-channel) / 0.12)   0%, transparent 55%),
+    radial-gradient(ellipse 45% 35% at 55% -5%, rgb(var(--warning-channel) / 0.07)   0%, transparent 50%);
 }
 .mesh-bg-subtle {
   background-color: var(--background);
   background-image:
-    radial-gradient(ellipse 60% 40% at 0% 0%,    rgba(124, 58, 237, 0.10) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 35% at 100% 100%, rgba(179, 211, 53, 0.07) 0%, transparent 50%);
+    radial-gradient(ellipse 60% 40% at 0% 0%,     rgb(var(--secondary-channel) / 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 35% at 100% 100%, rgb(var(--primary-channel) / 0.07)   0%, transparent 50%);
 }
 
 /* ── Text gradient classes ──
-   Same known limitation as the mesh utilities above: hardcoded hex stops,
-   obsidian-specific, unchanged by the active preset. */
-.text-gradient-violet {
-  background: linear-gradient(135deg, #a78bfa 0%, #7dd3fc 50%, #B3D335 100%);
+   Were `.text-gradient-violet` and `.text-gradient-electric`, with hardcoded
+   hex stops sampled from one preset — so they were unchanged by the active
+   brand, which is the opposite of what a brand-coloured heading is for. They
+   read the gradient TOKENS now, one class per family, and follow the brand.
+
+   The old violet class was a three-stop rainbow (violet → sky → lime) and its
+   replacement is the family's own two-stop sweep, so this is a visible change
+   and not only a rename. It has to be: two of the three old stops named hues
+   that no longer exist in any brand. */
+.text-gradient-primary {
+  background: var(--gradient-primary);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-.text-gradient-electric {
-  background: linear-gradient(135deg, #c4b5fd 0%, #8b5cf6 100%);
+.text-gradient-secondary {
+  background: var(--gradient-secondary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-gradient-accent {
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-gradient-success {
+  background: var(--gradient-success);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-gradient-warning {
+  background: var(--gradient-warning);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-gradient-danger {
+  background: var(--gradient-danger);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* ── Glow helpers ── */
-.glow-violet { box-shadow: var(--glow-violet); }
-.glow-mint   { box-shadow: var(--glow-mint); }
-.glow-amber  { box-shadow: var(--glow-amber); }
+/* ── Glow helpers ──
+   One per family, so a component never has to reach for a hue word. There were
+   three, named violet/mint/amber, and no way to glow a success or a danger. */
+.glow-primary   { box-shadow: var(--glow-primary); }
+.glow-secondary { box-shadow: var(--glow-secondary); }
+.glow-accent    { box-shadow: var(--glow-accent); }
+.glow-success   { box-shadow: var(--glow-success); }
+.glow-warning   { box-shadow: var(--glow-warning); }
+.glow-danger    { box-shadow: var(--glow-danger); }
 
 /* ── Status chip base ── */
 .status-chip {

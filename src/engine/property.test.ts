@@ -353,4 +353,39 @@ describe("property — invariants across every preset, both schemes", () => {
     expect(card.length).toBeGreaterThan(0);
     expect(layout.length).toBeGreaterThan(0);
   });
+
+  it("16. every token THIS package's own styles.css reads is one it emits", () => {
+    /* WRITTEN BECAUSE ITS ABSENCE COST SOMETHING. The semantic-role rename
+       moved every token in `presets/*.css`, and all 139 assertions here stayed
+       green while this package's OWN shared utility layer kept reading
+       `--glow-mint`, `--glow-violet`, `--glow-amber` and a per-tone gradient-ink
+       block keyed on tone words no component sends any more. `.glow-mint` did
+       not error, did not warn and did not fall back — it resolved to nothing
+       and rendered no shadow at all.
+
+       Assertion 15 covers the three CONSUMING packages and could never catch
+       this: it scrapes their `--ib-t-` / `--ic-t-` alias prefixes, and this
+       file aliases nothing, it reads the host tokens directly. A package that
+       checks its consumers' contract and not its own is checking the easier
+       half.
+
+       `--ib-*` / `--ic-*` (one dash) are the button and card packages' OWN
+       scoped properties, set by those packages on their own elements; this
+       sheet legitimately overrides them. `--il-*` likewise. Everything else
+       must be a token the engine emits. */
+    const stylesPath = resolve(dirname(fileURLToPath(import.meta.url)), "../../styles.css");
+    const css = readFileSync(stylesPath, "utf8");
+    /* Strip comments first. This file explains its own history and names the
+       dead tokens while doing it, which is exactly the prose a raw regex would
+       report as a defect. */
+    const code = css.replace(/\/\*[\s\S]*?\*\//g, "");
+
+    const abi = new Set<string>(ROOT_TOKEN_NAMES);
+    const read = [...code.matchAll(/var\(\s*(--[a-z0-9-]+)/g)].map((m) => m[1]!);
+    const unknown = [...new Set(read)].filter(
+      (n) => !abi.has(n) && !/^--(?:ib|ic|il)-/.test(n),
+    );
+    expect(unknown, "read by styles.css, never emitted by the engine").toEqual([]);
+    expect(read.length, "scrape found nothing — the assertion would be vacuous").toBeGreaterThan(10);
+  });
 });
