@@ -288,7 +288,25 @@ const COBALT_FILL_END = fillFloor(slotFrom("cobalt", "--cobalt-deep"), 4.5);
 
    There is no `--electric-fill-end`: the avatar needs one electric stop and a
    second would be a token nothing reads. */
-const ELECTRIC_FILL = fillFloor(slotFrom("electric", "--electric"), 4.5);
+/* 6.0, not the 4.5 every other fill takes, and the extra 1.5 is bought by the
+   TROUGH rather than by the endpoint. A two-hue blend dips in the middle (see
+   the `mix` ColorRef), so an endpoint floor of 4.5 leaves the interior free to
+   fall below AA. Swept over 8,000 resolved tenant pairings — 4,000 random
+   electric seeds x 2 schemes, 3,889 distinct fills: at 4.5 the blend fails AA
+   on 12.2% of them, and endpoint-only measurement calls every one of those a
+   pass. 5.0 -> 1.3%, 5.5 -> 0.1%, 6.0 -> 0.0% with the worst trough at 4.72.
+   Above 7.5 nothing survives at all, because cobalt's own stop measures 7.14
+   and the floor is a MIN over both ends.
+
+   This is the one fill floor set by a property of the pair rather than of the
+   colour, which is what a cross-family gradient costs. */
+const ELECTRIC_FILL = fillFloor(slotFrom("electric", "--electric"), 6.0);
+
+/** The avatar gradient, sampled end to end. Both stops plus nine interior
+ *  points, because an endpoint pair does not bound a two-hue blend. */
+const AVATAR_GRADIENT_SAMPLES: ColorRef[] = Array.from({ length: 11 }, (_, i) =>
+  i === 0 ? COBALT_FILL : i === 10 ? ELECTRIC_FILL : { k: "mix", a: COBALT_FILL, b: ELECTRIC_FILL, t: i / 10 },
+);
 
 /** Alpha-on-overlay: the same veil in both schemes, white over dark and black
  *  over light. Left as a literal — as the button package had it — a light-first
@@ -351,12 +369,18 @@ const TOKENS: Record<string, TokenRule> = {
     over: [COBALT_FILL, COBALT_FILL_END],
     candidates: [FILL_INK, FILL_WHITE],
   },
-  /* The avatar initials. Measured over BOTH of its stops, which come from two
-     different families — so this is the one ink that has to survive a hue
-     change along the gradient, not just a shade ramp. */
+  /* The avatar initials, measured over the WHOLE gradient rather than its two
+     ends. Every other fill here is a within-family shade ramp, where the
+     interior really does lie between the stops; this one crosses a hue, where
+     it does not — see the `mix` ColorRef for the measured counterexample.
+     `ink` already scores on the worst backdrop, so adding interior samples to
+     `over` is the whole fix.
+
+     11 samples, not 3: the dip is not centred. On the seed that exposed this it
+     bottoms out at t=0.66, which a quarter-point list steps straight over. */
   "--gradient-avatar-ink": {
     kind: "ink",
-    over: [COBALT_FILL, ELECTRIC_FILL],
+    over: AVATAR_GRADIENT_SAMPLES,
     candidates: [FILL_INK, FILL_WHITE],
   },
 

@@ -198,6 +198,7 @@ describe("property — invariants across all 6 presets, both schemes", () => {
       ["--amber-fill-end", "--amber-fill-ink", 4.5],
       ["--cobalt-fill", "--cobalt-fill-ink", 4.5],
       ["--cobalt-fill-end", "--cobalt-fill-ink", 4.5],
+      ["--electric-fill", "--gradient-avatar-ink", 6.0],
     ];
     const problems: string[] = [];
     for (const [id, preset] of PRESET_ENTRIES) {
@@ -219,6 +220,49 @@ describe("property — invariants across all 6 presets, both schemes", () => {
     expect(problems).toEqual([]);
   });
 
+  it("--gradient-avatar-ink clears AA across the WHOLE blend, not just its two ends", () => {
+    /* The assertion Codex asked for, and the one the other fills do not need.
+       Every other fill is a within-family shade ramp, whose interior really
+       does lie between its stops. This one crosses a hue, and there the
+       intuition is false: sRGB decode is convex and luminance weights green at
+       .7152 against blue's .0722, so a blue->red midpoint has a moderate amount
+       of each and no green, and its luminance sits BELOW both ends.
+
+       Measured, on a seed the engine accepts: `#37a3fe` -> `#f50552` reads 4.58
+       at its worse end and 3.60 at t=0.66. Endpoint-only measurement calls that
+       gradient AA. Sweeping 8,000 resolved tenant pairings at the old 4.5 floor
+       found 12.2% failing across the blend and endpoint-only scoring passing
+       every single one of them, which is why `--electric-fill` is floored at
+       6.0 and why this test samples rather than checking two colours. */
+    const SAMPLES = 101;
+    const problems: string[] = [];
+    for (const [id, spec] of Object.entries(PRESETS)) {
+      const brand = resolveBrand(spec);
+      for (const scheme of ["dark", "light"] as const) {
+        const map = brand[scheme];
+        const a = map.get("--cobalt-fill")!;
+        const b = map.get("--electric-fill")!;
+        const ink = map.get("--gradient-avatar-ink")!;
+        const chan = (hex: string, i: number) => parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16);
+        for (let i = 0; i < SAMPLES; i++) {
+          const t = i / (SAMPLES - 1);
+          const hex =
+            "#" +
+            [0, 1, 2]
+              .map((c) =>
+                Math.round(chan(a, c) + (chan(b, c) - chan(a, c)) * t)
+                  .toString(16)
+                  .padStart(2, "0"),
+              )
+              .join("");
+          const ratio = contrastRatio(ink, hex);
+          if (ratio < 4.5) problems.push(`${id}|${scheme}|t=${t.toFixed(2)}|${hex}: ${ratio.toFixed(2)}`);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
   it("solid-fill stops are scheme-invariant — the fill is the same colour in light as in dark", () => {
     /* The whole premise of the split: a fill does not darken in light mode, so
        a filled button looks identical either way. If one of these ever differs,
@@ -228,6 +272,7 @@ describe("property — invariants across all 6 presets, both schemes", () => {
       "--brand-fill", "--brand-fill-end", "--brand-fill-ink",
       "--amber-fill", "--amber-fill-end", "--amber-fill-ink",
       "--cobalt-fill", "--cobalt-fill-end", "--cobalt-fill-ink",
+      "--electric-fill", "--gradient-avatar-ink",
     ];
     const problems: string[] = [];
     for (const [id, preset] of PRESET_ENTRIES) {

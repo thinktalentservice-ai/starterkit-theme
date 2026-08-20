@@ -104,6 +104,24 @@ function resolveRef(ref: ColorRef, scheme: SchemeName, ctx: Context): string {
       return rampAt(ramp, ref.index + (scheme === "light" ? shift : 0));
     }
 
+    case "mix": {
+      /* Channel-wise lerp in GAMMA space — see the ColorRef doc for why this
+         must not be an OKLCH or linear-light blend. `t` is clamped rather than
+         thrown on: a sample list is authoring data, and an out-of-range point
+         should read as the endpoint it is nearest, not fail a page. */
+      const t = Math.min(1, Math.max(0, ref.t));
+      const a = normalizeHex(resolveRef(ref.a, scheme, ctx));
+      const b = normalizeHex(resolveRef(ref.b, scheme, ctx));
+      const ch = (i: number) => {
+        const av = parseInt(a.slice(1 + i * 2, 3 + i * 2), 16);
+        const bv = parseInt(b.slice(1 + i * 2, 3 + i * 2), 16);
+        return Math.round(av + (bv - av) * t)
+          .toString(16)
+          .padStart(2, "0");
+      };
+      return `#${ch(0)}${ch(1)}${ch(2)}`;
+    }
+
     case "lift": {
       const base = resolveRef(ref.ref, scheme, ctx);
       const against = resolveRef(ref.against, scheme, ctx);

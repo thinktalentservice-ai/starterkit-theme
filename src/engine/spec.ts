@@ -212,7 +212,25 @@ export type ColorRef =
    *
    *  This is a FLOOR on the fill, not a target: `fitContrast` walks nearest
    *  first, so a preset moves as little as it can and keeps its own hue. */
-  | { k: "lift"; ref: ColorRef; against: ColorRef; min: number };
+  | { k: "lift"; ref: ColorRef; against: ColorRef; min: number }
+  /** A point ON a `linear-gradient` between `a` and `b`, at position `t` in
+   *  [0,1]. Channel-wise lerp in GAMMA space, which is what the browser does
+   *  for a default-colour-space CSS gradient — not an OKLCH or linear-light
+   *  blend, both of which would describe a ramp no one renders.
+   *
+   *  Exists because MEASURING A GRADIENT AT ITS ENDPOINTS DOES NOT BOUND IT.
+   *  The intuition that the interior lies between the two ends is false: sRGB
+   *  decode is convex, so linearize(lerp(gamma)) <= lerp(linearize(gamma)), and
+   *  luminance weights the channels very unevenly (G .7152 vs B .0722). Blend
+   *  blue into red and the middle has a moderate amount of each and no green at
+   *  all, so its luminance sits BELOW both ends. Measured, on a seed the engine
+   *  accepts: `#37a3fe` -> `#f80000` reads 7.14 and 4.55 against `#0b0f19` at
+   *  the ends and 3.35 at t=0.66. Endpoint-only `ink` would have called that
+   *  gradient AA and shipped sub-AA initials on a reseeded tenant.
+   *
+   *  Six curated presets all happen to bottom out at an endpoint, which is
+   *  exactly why this cannot be left to the preset suite to catch. */
+  | { k: "mix"; a: ColorRef; b: ColorRef; t: number };
 
 export type Scheme<T> = { dark: T; light: T };
 
