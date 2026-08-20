@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # OS metadata
 .DS_Store
+
+# JetBrains IDE config — per-developer, not a package artefact
+.idea/

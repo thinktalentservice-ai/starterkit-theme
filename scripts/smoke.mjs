@@ -104,11 +104,11 @@ note(Array.isArray(core.ROOT_TOKEN_NAMES) && core.ROOT_TOKEN_NAMES.length > 100,
   `ROOT_TOKEN_NAMES has ${core.ROOT_TOKEN_NAMES?.length ?? 0} entries`);
 note(Array.isArray(core.CHANNEL_PAIRS) && core.CHANNEL_PAIRS.length > 0,
   `CHANNEL_PAIRS has ${core.CHANNEL_PAIRS?.length ?? 0} entries`);
-note(core.isTokenName?.("--mint") === true && core.isTokenName?.("--nope") === false,
+note(core.isTokenName?.("--primary") === true && core.isTokenName?.("--nope") === false,
   "isTokenName accepts a real token and rejects a typo");
 
 const presets = require(join(ROOT, "dist", "presets.cjs"));
-note(presets.PRESET_IDS?.[0] === "obsidian", "PRESET_IDS[0] is obsidian (the golden-test preset)");
+note(presets.PRESET_IDS?.[0] === "think", "PRESET_IDS[0] is think (the golden-test preset)");
 
 if (fail.length) {
   console.error(`\n✗ smoke: ${fail.length} check(s) failed`);

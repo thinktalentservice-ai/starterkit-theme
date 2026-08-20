@@ -1,8 +1,8 @@
 # @devopsnext/starterkit-theme
 
-Obsidian design-system theme — a brandable CSS token engine plus a MUI theme. Zero runtime dependencies.
+The two-brand semantic token engine — a brandable CSS token engine plus a MUI theme. Zero runtime dependencies.
 
-A brand is a colour family plus geometry: give the engine a seed hex, and it resolves an entire ramp — light scheme, dark scheme, contrast-checked — rather than a single flat colour swap that leaves half the UI stale. Six presets ship out of the box (Obsidian, Meridian, Solstice, Beacon, Graphite, Atlas), each hand-authored and contrast-tested, not generated.
+A brand is a colour family plus geometry: give the engine a seed hex, and it resolves an entire ramp — light scheme, dark scheme, contrast-checked — rather than a single flat colour swap that leaves half the UI stale. Two presets ship out of the box (Think, Elemetrik), each hand-authored and contrast-tested, not generated.
 
 ## Install
 
@@ -17,10 +17,10 @@ pnpm add @devopsnext/starterkit-theme
 | Import | Contents | Environment |
 | --- | --- | --- |
 | `@devopsnext/starterkit-theme` | Token engine: `resolveBrand`, `serializeBrandCss`, ramp/parse utilities, token names | Server-safe — no React, no `"use client"` |
-| `@devopsnext/starterkit-theme/presets` | The six curated `PresetSpec` objects plus `PRESET_IDS` / `isPresetId` | Server-safe |
+| `@devopsnext/starterkit-theme/presets` | The two curated `PresetSpec` objects plus `PRESET_IDS` / `isPresetId` | Server-safe |
 | `@devopsnext/starterkit-theme/mui` | `createStarterkitTheme()` — a `cssVariables`-mode MUI theme wired to the token set | Server-safe (requires `@mui/material`) |
 | `@devopsnext/starterkit-theme/react` | `BrandProvider`, `useBrand`, `useConcreteTheme`, `useTokenValue`, `ThemeToggle` | Client-only (`"use client"`) |
-| `@devopsnext/starterkit-theme/styles.css` | Obsidian's static token sheet | Any CSS pipeline |
+| `@devopsnext/starterkit-theme/styles.css` | Think's static token sheet | Any CSS pipeline |
 | `@devopsnext/starterkit-theme/presets/*.css` | Pre-built CSS for each preset | Any CSS pipeline |
 | `@devopsnext/starterkit-theme/schema.json` | JSON Schema for the tenant-facing brand document | Validation tooling |
 
@@ -30,10 +30,10 @@ pnpm add @devopsnext/starterkit-theme
 
 ```ts
 import { resolveBrand, serializeBrandCss } from "@devopsnext/starterkit-theme";
-import { OBSIDIAN } from "@devopsnext/starterkit-theme/presets";
+import { THINK } from "@devopsnext/starterkit-theme/presets";
 
-const brand = resolveBrand(OBSIDIAN);
-const css = serializeBrandCss(brand, { provenance: { version: "0.1.0", brand: OBSIDIAN.id } });
+const brand = resolveBrand(THINK);
+const css = serializeBrandCss(brand, { provenance: { version: "0.1.0", brand: THINK.id } });
 ```
 
 `css` is a `:root { ... }` block plus a `[data-mui-color-scheme="light"] { ... }` override block — inject it server-side, or feed it straight into `BrandProvider`.
@@ -52,7 +52,7 @@ const theme = createStarterkitTheme({ defaultColorScheme: "dark" });
 "use client";
 import { BrandProvider, ThemeToggle, useConcreteTheme } from "@devopsnext/starterkit-theme/react";
 
-<BrandProvider id="obsidian" css={css} theme={theme}>
+<BrandProvider id="think" css={css} theme={theme}>
   <ThemeToggle />
 </BrandProvider>;
 ```

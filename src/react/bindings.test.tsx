@@ -33,7 +33,7 @@ describe("BrandProvider / useBrand", () => {
   it("renders exactly one <style id=brand-vars> with the given css, and renders children", () => {
     const css = ':root[data-mui-color-scheme="dark"] { --mint: #10b981; }';
     const { container } = render(
-      <BrandProvider id="obsidian" css={css} theme={theme}>
+      <BrandProvider id="think" css={css} theme={theme}>
         <div data-testid="child">hello</div>
       </BrandProvider>,
     );
@@ -74,12 +74,12 @@ describe("BrandProvider / useBrand", () => {
     }
 
     render(
-      <BrandProvider id="obsidian" css={css} theme={theme}>
+      <BrandProvider id="think" css={css} theme={theme}>
         <Consumer />
       </BrandProvider>,
     );
 
-    expect(observed).toEqual({ id: "obsidian", css });
+    expect(observed).toEqual({ id: "think", css });
   });
 });
 

@@ -27,7 +27,7 @@ declare module "@mui/material/styles" {
 }
 
 /** MUI runs `augmentColor()` over every palette intention and derives the keys
- *  a theme did not supply. Derivation parses the colour — and `var(--mint)` is
+ *  a theme did not supply. Derivation parses the colour — and `var(--primary)` is
  *  unparseable, so it throws at theme-creation time, which is build time. Every
  *  intention below must therefore supply `main`, `light`, `dark` and
  *  `contrastText` EXPLICITLY, plus its `*Channel` keys, leaving nothing to
@@ -77,72 +77,100 @@ export type CreateStarterkitThemeOptions = {
    *  runtime `mode` concept resolved client-side by `useConcreteTheme` (see
    *  `src/react`) via `useColorScheme()`, not something a theme can default
    *  into before there is a browser to resolve it against. Defaults to
-   *  "dark" — this package's presets (obsidian) are dark-first, matching
-   *  what the host app's own appConfig.DEFAULT_COLOR_SCHEME was set to. */
+   *  "dark" — this package's presets (think, elemetrik) are dark-first,
+   *  matching what the host app's own appConfig.DEFAULT_COLOR_SCHEME was
+   *  set to. */
   defaultColorScheme?: "light" | "dark";
 };
 
-/** The Obsidian MUI theme: a `cssVariables`-mode theme whose every palette
- *  value is a `var(--token)` reference into this package's CSS layer, rather
- *  than a literal colour MUI would otherwise try to derive shades from (see
- *  `PALETTE_INTENTIONS`'s doc comment for why that throws). Moved verbatim
- *  out of the host app's `src/utils/theme/mui-theme.js` — same token names,
- *  same values, same component overrides. */
+/** The active preset's MUI theme: a `cssVariables`-mode theme whose every
+ *  palette value is a `var(--token)` reference into this package's CSS layer,
+ *  rather than a literal colour MUI would otherwise try to derive shades from
+ *  (see `PALETTE_INTENTIONS`'s doc comment for why that throws). Moved
+ *  verbatim out of the host app's `src/utils/theme/mui-theme.js` — same
+ *  token names, same values, same component overrides. */
 export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}): Theme {
+  /* KNOWN APPROXIMATION, stated rather than hidden: `lightChannel`,
+   * `darkChannel` and `contrastTextChannel` all carry `var(--<f>-channel)`,
+   * which is the triple of `main` — NOT of the value each key actually holds.
+   *
+   * Only `mainChannel` is exact. The ABI publishes one RGB triple per family,
+   * the mark's, because that is the one 32 call sites across the sibling
+   * packages consume as `rgb(var(--<f>-channel) / α)`. Making the other three
+   * exact needs `--<f>-solid-channel`, `--<f>-solid-hover-channel` and
+   * `--<f>-on-solid-channel` — 18 new tokens whose only consumer would be MUI
+   * internals, in a change whose point is to shrink the token surface.
+   *
+   * Why it is survivable: these three exist to stop `augmentColor()` running at
+   * all (it parses the colour, and `var(--primary)` is unparseable, so it throws
+   * at theme-creation time — see PALETTE_INTENTIONS). MUI's own components read
+   * `mainChannel` for every alpha state; `lightChannel`/`darkChannel` are
+   * essentially unread, and `contrastTextChannel` nearly so. Where one IS read,
+   * the result is a tint in the family's mark colour instead of its fill colour
+   * — same hue family, wrong rung.
+   *
+   * It is a real if small correctness gap and the fix is one `channel` rule per
+   * token in src/presets/base.ts, not a workaround here. */
   const palette = {
     primary: {
-      main: "var(--mint)",
-      mainChannel: "var(--mint-channel)",
-      light: "var(--mint-text)",
-      lightChannel: "var(--mint-text-channel)",
-      dark: "var(--mint-dark)",
-      darkChannel: "var(--mint-dark-channel)",
-      contrastText: "#ffffff",
+      main: "var(--primary)",
+      mainChannel: "var(--primary-channel)",
+      light: "var(--primary-solid)",
+      lightChannel: "var(--primary-channel)",
+      dark: "var(--primary-solid-hover)",
+      darkChannel: "var(--primary-channel)",
+      contrastText: "var(--primary-on-solid)",
+      contrastTextChannel: "var(--primary-channel)",
     },
     secondary: {
-      main: "var(--electric)",
-      mainChannel: "var(--electric-channel)",
-      light: "var(--electric-text)",
-      lightChannel: "var(--electric-text-channel)",
-      dark: "var(--electric-deep)",
-      darkChannel: "var(--electric-deep-channel)",
-      contrastText: "#ffffff",
+      main: "var(--secondary)",
+      mainChannel: "var(--secondary-channel)",
+      light: "var(--secondary-solid)",
+      lightChannel: "var(--secondary-channel)",
+      dark: "var(--secondary-solid-hover)",
+      darkChannel: "var(--secondary-channel)",
+      contrastText: "var(--secondary-on-solid)",
+      contrastTextChannel: "var(--secondary-channel)",
     },
     warning: {
-      main: "var(--amber-brand)",
-      mainChannel: "var(--amber-channel)",
-      light: "var(--amber-text)",
-      lightChannel: "var(--amber-text-channel)",
-      dark: "var(--amber-deep)",
-      darkChannel: "var(--amber-deep-channel)",
-      contrastText: "#ffffff",
+      main: "var(--warning)",
+      mainChannel: "var(--warning-channel)",
+      light: "var(--warning-solid)",
+      lightChannel: "var(--warning-channel)",
+      dark: "var(--warning-solid-hover)",
+      darkChannel: "var(--warning-channel)",
+      contrastText: "var(--warning-on-solid)",
+      contrastTextChannel: "var(--warning-channel)",
     },
     error: {
-      main: "var(--rose)",
-      mainChannel: "var(--rose-channel)",
-      light: "var(--rose)",
-      lightChannel: "var(--rose-channel)",
-      dark: "var(--rose-deep)",
-      darkChannel: "var(--rose-channel)",
-      contrastText: "#ffffff",
+      main: "var(--danger)",
+      mainChannel: "var(--danger-channel)",
+      light: "var(--danger-solid)",
+      lightChannel: "var(--danger-channel)",
+      dark: "var(--danger-solid-hover)",
+      darkChannel: "var(--danger-channel)",
+      contrastText: "var(--danger-on-solid)",
+      contrastTextChannel: "var(--danger-channel)",
     },
     info: {
-      main: "var(--sky)",
-      mainChannel: "var(--sky-channel)",
-      light: "var(--sky)",
-      lightChannel: "var(--sky-channel)",
-      dark: "var(--sky)",
-      darkChannel: "var(--sky-channel)",
-      contrastText: "#ffffff",
+      main: "var(--accent)",
+      mainChannel: "var(--accent-channel)",
+      light: "var(--accent-solid)",
+      lightChannel: "var(--accent-channel)",
+      dark: "var(--accent-solid-hover)",
+      darkChannel: "var(--accent-channel)",
+      contrastText: "var(--accent-on-solid)",
+      contrastTextChannel: "var(--accent-channel)",
     },
     success: {
-      main: "var(--mint)",
-      mainChannel: "var(--mint-channel)",
-      light: "var(--mint-text)",
-      lightChannel: "var(--mint-text-channel)",
-      dark: "var(--mint-dark)",
-      darkChannel: "var(--mint-dark-channel)",
-      contrastText: "#ffffff",
+      main: "var(--success)",
+      mainChannel: "var(--success-channel)",
+      light: "var(--success-solid)",
+      lightChannel: "var(--success-channel)",
+      dark: "var(--success-solid-hover)",
+      darkChannel: "var(--success-channel)",
+      contrastText: "var(--success-on-solid)",
+      contrastTextChannel: "var(--success-channel)",
     },
     background: {
       default: "var(--background)",
@@ -225,8 +253,8 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
             boxShadow: "var(--shadow-card)",
             transition: "border-color 0.25s, background 0.25s, box-shadow 0.25s, transform 0.25s",
             "&:hover": {
-              borderColor: "var(--accent-border)",
-              background: "var(--accent-fill)",
+              borderColor: "var(--primary-border)",
+              background: "var(--primary-bg)",
               boxShadow: "var(--shadow-card-hover)",
               transform: "translateY(-3px)",
             },
@@ -246,20 +274,20 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
         styleOverrides: {
           containedPrimary: {
             background: "var(--gradient-primary)",
-            boxShadow: "var(--shadow-btn-mint)",
+            boxShadow: "var(--shadow-btn-primary)",
             borderRadius: "var(--radius-chip)",
             "&:hover": {
               filter: "brightness(1.1)",
-              boxShadow: "0 6px 28px rgb(var(--mint-channel) / 0.5)",
+              boxShadow: "0 6px 28px rgb(var(--primary-channel) / 0.5)",
             },
           },
           containedSecondary: {
             background: "var(--gradient-secondary)",
-            boxShadow: "var(--shadow-btn-violet)",
+            boxShadow: "var(--shadow-btn-secondary)",
             borderRadius: "var(--radius-chip)",
             "&:hover": {
               filter: "brightness(1.1)",
-              boxShadow: "0 6px 28px rgb(var(--electric-channel) / 0.5)",
+              boxShadow: "0 6px 28px rgb(var(--secondary-channel) / 0.5)",
             },
           },
           outlined: {
@@ -337,11 +365,21 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
         styleOverrides: {
           root: ({ ownerState }) => {
             const sev = ownerState.color || ownerState.severity || "success";
-            const TOK: Record<string, { ch: string; icon: string; solid: string; on: string } | undefined> = {
-              success: { ch: "--mint-channel", icon: "--mint-text", solid: "--mint", on: "var(--on-mint)" },
-              info: { ch: "--sky-channel", icon: "--sky", solid: "--sky", on: "var(--on-sky)" },
-              warning: { ch: "--amber-channel", icon: "--amber-text", solid: "--amber-brand", on: "var(--on-amber)" },
-              error: { ch: "--rose-channel", icon: "--rose", solid: "--rose", on: "#ffffff" },
+            // Collapsed from the old 4-slot { ch, icon, solid, on } shape to
+            // the 3 tokens the new ABI actually publishes per family: `mark`
+            // (var(--<f>), the non-text indicator — old `icon` and `solid`
+            // both meant this), `tint` (var(--<f>-bg), the alpha
+            // chip/callout background — old `ch` was hand-rolled via
+            // rgb(var(--<f>-channel) / alpha) to approximate exactly this,
+            // now a first-class token so the manual alpha math is gone), and
+            // `on` (var(--<f>-on-solid), MEASURED ink — old `on` for error
+            // was a hardcoded "#ffffff", which is the exact defect this
+            // rename exists to remove).
+            const TOK: Record<string, { mark: string; tint: string; on: string } | undefined> = {
+              success: { mark: "--success", tint: "--success-bg", on: "--success-on-solid" },
+              info: { mark: "--accent", tint: "--accent-bg", on: "--accent-on-solid" },
+              warning: { mark: "--warning", tint: "--warning-bg", on: "--warning-on-solid" },
+              error: { mark: "--danger", tint: "--danger-bg", on: "--danger-on-solid" },
             };
             // Host used `[sev] || {}` — an unmatched `sev` never actually
             // happens (it's always one of the four keys above), so the exact
@@ -349,14 +387,14 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
             // Kept as `{}` rather than inventing a differently-shaped
             // placeholder, so the two stay behaviorally identical rather than
             // merely similar on an unreachable path.
-            const tok: Partial<{ ch: string; icon: string; solid: string; on: string }> = TOK[sev] ?? {};
+            const tok: Partial<{ mark: string; tint: string; on: string }> = TOK[sev] ?? {};
             const base = { borderRadius: "var(--radius)", alignItems: "center" };
             if (ownerState.variant === "filled") {
               return {
                 ...base,
-                backgroundColor: `var(${tok.solid})`,
-                color: tok.on,
-                "& .MuiAlert-icon": { color: tok.on },
+                backgroundColor: `var(${tok.mark})`,
+                color: `var(${tok.on})`,
+                "& .MuiAlert-icon": { color: `var(${tok.on})` },
               };
             }
             if (ownerState.variant === "outlined") {
@@ -364,16 +402,16 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
                 ...base,
                 backgroundColor: "transparent",
                 color: "var(--fg1)",
-                border: `1px solid rgb(var(${tok.ch}) / 0.45)`,
-                "& .MuiAlert-icon": { color: `var(${tok.icon})` },
+                border: `1px solid var(${tok.tint})`,
+                "& .MuiAlert-icon": { color: `var(${tok.mark})` },
               };
             }
             return {
               ...base,
-              backgroundColor: `rgb(var(${tok.ch}) / 0.14)`,
+              backgroundColor: `var(${tok.tint})`,
               color: "var(--fg1)",
-              border: `1px solid rgb(var(${tok.ch}) / 0.30)`,
-              "& .MuiAlert-icon": { color: `var(${tok.icon})` },
+              border: `1px solid var(${tok.tint})`,
+              "& .MuiAlert-icon": { color: `var(${tok.mark})` },
             };
           },
         },

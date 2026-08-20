@@ -1,7 +1,7 @@
 {
   "name": "@devopsnext/starterkit-theme",
-  "version": "0.4.0",
-  "description": "Obsidian design-system theme — brandable CSS token engine + MUI theme. Zero runtime dependencies.",
+  "version": "1.0.0",
+  "description": "The two-brand semantic token engine — a brandable CSS token engine plus a MUI theme. Zero runtime dependencies.",
   "license": "MIT",
   "type": "module",
   "sideEffects": [
@@ -107,6 +107,6 @@
     "design-system",
     "branding",
     "white-label",
-    "obsidian"
+    "semantic-tokens"
   ]
 }

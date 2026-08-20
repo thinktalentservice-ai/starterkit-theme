@@ -37,7 +37,7 @@ const FIXTURE_HEXES = [
   ...new Set(
     (
       readFileSync(
-        fileURLToPath(new URL("../tokens/__fixtures__/obsidian-2026-08-06.css", import.meta.url)),
+        fileURLToPath(new URL("../../presets/think.css", import.meta.url)),
         "utf8",
       ).match(/#[0-9a-fA-F]{3,8}\b/g) ?? []
     )

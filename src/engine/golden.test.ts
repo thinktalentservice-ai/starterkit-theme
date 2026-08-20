@@ -1,228 +1,111 @@
-/* THE HARD GATE.
+/* Structural invariants of the resolved catalogue.
  *
- * `resolveBrand(PRESETS.obsidian)` must reproduce the shipped sheet. Nothing in
- * the starterkit gets touched until this is green, because phase 8 replaces a
- * hand-written stylesheet with this engine's output and there is no way to
- * un-ship a brand that came out slightly wrong on 166 tokens.
+ * WHAT THIS FILE USED TO BE, AND WHAT IT NO LONGER IS. It was a golden test in
+ * the strict sense: `resolveBrand(PRESETS.obsidian)` had to reproduce
+ * `src/tokens/__fixtures__/obsidian-2026-08-06.css` — a byte-verified snapshot
+ * of a hand-tuned sheet that PREDATED this engine — value for value, in both
+ * schemes. That made it an independent anchor: the engine could not move a
+ * colour without the test noticing, because the expected answer came from
+ * somewhere the engine had no influence over.
  *
- * WHAT THIS TEST DOES AND DOES NOT PROVE. Being honest about this matters more
- * than the green tick:
+ * That anchor is gone, deliberately, and it is the largest single cost of this
+ * change. The brand it anchored has been deleted; there is no hand-tuned sheet
+ * for `think` and inventing one by pasting the engine's own output would be a
+ * test asserting that the engine produces what the engine produced. Rather than
+ * dress that up, the fixture comparisons are DELETED and what remains is stated
+ * for what it is: structural invariants, not a reproduction proof.
  *
- *   IT PROVES the STRUCTURAL model. Which token derives from which reference,
- *   the shift-by-one light scheme, the two-step contrast bump on `--mint`, every
- *   channel matching its base, every alpha and glow template, the accent layer
- *   reading the ramp rather than `--mint`. Those are claims that can be wrong,
- *   and several of them nearly were — wiring `--accent-glow` to `--mint` instead
- *   of to mint's ramp index 2 is off by 12 dE00 and this test is what catches it.
- *
- *   IT PROVES the arithmetic survives. A ramp is stored as relative OKLCH
- *   geometry and rebuilt through gamut clamping and 8-bit quantization; that
- *   round trip is not free and it is asserted byte-exact.
- *
- *   IT DOES NOT PROVE the geometry was independently derived. The ramps are the
- *   sheet's own colours. Feeding a preset's own numbers back and finding them
- *   again is not a discovery — it is a regression barrier. The discovery claim
- *   belongs to phase 5, where the same geometry has to produce a legible brand
- *   from five hues it has never seen.
- *
- * The provenance histogram is printed for the same reason: "reproduces 166
- * tokens" would be a misleading headline if most of them were literals.
+ * WHAT STILL CATCHES A DRIFTING COLOUR ENGINE. The maths anchors are brand-free
+ * and untouched — `contrast.test.ts` (a measured hand-fix reproduced from first
+ * principles, ray enumeration, the `minChroma` budget), `deltaE.test.ts`
+ * (Sharma/Wu/Dalal published reference data plus a 20,000-pair culori
+ * cross-check), `oklch.test.ts`, `gamut.test.ts`. A matrix typo or a wrong
+ * transfer function still fails, loudly, against numbers no one here chose.
+ * What is genuinely no longer guaranteed is that a specific curated sheet is
+ * reproduced. There is no longer such a sheet.
  */
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
 import { contrastRatio } from "../color/contrast";
-import { deltaE00Hex } from "../color/deltaE";
-import { normalizeHex } from "../color/oklch";
-import { buildRamp, measureGeometry } from "./ramp";
-import { readTokens } from "./parse";
-import { measureAcknowledged, resolveBrand } from "./resolve";
-import { serializeBrandCss } from "./serialize";
-import { OBSIDIAN, OBSIDIAN_RAMPS, OBSIDIAN_SEED_INDEX } from "../presets/obsidian";
+import { hexToTriple, normalizeHex } from "../color/oklch";
+import { LADDER, LADDER_REFERENCE, LADDER_SEED_INDEX, ROLE_NAMES } from "./ladder";
+import { DEFAULT_PRESET_ID, PRESETS, PRESET_IDS } from "../presets/index";
 import {
   CHANNEL_PAIRS,
-  LIGHT_FLIPPED_TOKEN_NAMES,
   ROOT_TOKEN_NAMES,
   UNPAIRED_CHANNEL_TOKEN_NAMES,
 } from "../tokens/names";
+import { readTokens } from "./parse";
+import { buildRamp, measureGeometry } from "./ramp";
+import { measureAcknowledged, resolveBrand } from "./resolve";
+import { serializeBrandCss } from "./serialize";
 
-const FIXTURE = readFileSync(
-  fileURLToPath(new URL("../tokens/__fixtures__/obsidian-2026-08-06.css", import.meta.url)),
-  "utf8",
-);
+/* MEASURED, then written down.
+ *
+ * Read it as: 48 of the 163 tokens are DELIBERATELY not branded — the light
+ * dropdown island (34), the categorical status palette (6+6) and the two fixed
+ * overlay channel constants. That is stated design policy, not a shortfall; the
+ * dropdown is the escape hatch a client uses when a brand turns out unreadable,
+ * so it must not be painted by that brand. Of the 115 a brand does reach, 78
+ * move when a seed changes and 37 are brand-independent templates (the neutral
+ * veils, the depth shadows, the radii, the fonts, the gradient var() strings).
+ *
+ * Changing any of these three numbers is a design decision and must show up in
+ * a diff. */
+const PROVENANCE_HISTOGRAM = { derived: 78, structural: 37, fixed: 48 };
 
-const fixtureRoot = readTokens(FIXTURE, ":root");
-const fixtureLight = readTokens(FIXTURE, '[data-mui-color-scheme="light"]');
+const DEFAULT = PRESETS[DEFAULT_PRESET_ID]!;
+const brand = resolveBrand(DEFAULT);
 
-/** What the browser computes for the light scheme: `:root` with the light block
- *  layered on top. Comparing the light DECLARATIONS alone would let a missing
- *  override pass as "no difference". */
-const fixtureLightResolved = new Map([...fixtureRoot, ...fixtureLight]);
-
-const brand = resolveBrand(OBSIDIAN);
-
-/* ── Value comparison ─────────────────────────────────────────────────────── */
-
-const HEX = /^#[0-9a-f]{3,8}$/i;
-const RGBA = /rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+))?\s*\)/gi;
-
-/** Canonical form for a colourless comparison: collapse whitespace and rewrite
- *  every `rgb()/rgba()` to a fixed shape, so `rgba(0,0,0,.3)` and
- *  `rgba(0, 0, 0, 0.30)` are recognised as the same value. Alignment padding and
- *  alpha spelling are not differences the browser can see. */
-function canonical(value: string): string {
-  return value
-    .trim()
-    .replace(/\s+/g, " ")
-    .replace(RGBA, (_m: string, r: string, g: string, b: string, a?: string) => {
-      const alpha = a === undefined ? 1 : Number(a);
-      return `rgba(${Number(r)},${Number(g)},${Number(b)},${alpha})`;
-    })
-    .toLowerCase();
-}
-
-type Diff = { token: string; scheme: string; expected: string; actual: string; note: string };
-
-/** Compare one token. Colours use dE00 <= 1.0 (a just-noticeable difference);
- *  everything else must be canonically identical, because there is no
- *  "perceptually close" reading of a gradient string or a radius. */
-function compare(token: string, scheme: string, expected: string, actual: string): Diff | null {
-  if (HEX.test(expected) && HEX.test(actual)) {
-    const dE = deltaE00Hex(normalizeHex(expected), normalizeHex(actual));
-    if (dE <= 1) return null;
-    return { token, scheme, expected, actual, note: `dE00 ${dE.toFixed(2)} > 1.0` };
-  }
-  if (canonical(expected) === canonical(actual)) return null;
-  return { token, scheme, expected, actual, note: "not canonically equal" };
-}
-
-/* ── Intentional divergence from the 2026-08-06 sheet ─────────────────────── */
-
-/* The fixture is a byte-verified snapshot of the hand-authored sheet, and the
-   tests below exist to prove the engine REPRODUCES it. Where we deliberately
-   change the design system, the honest record is not to overwrite the snapshot —
-   that would quietly retire the reproduction guarantee for those tokens and
-   leave nothing saying we ever diverged. It is to list the divergence here, with
-   a reason, and keep the snapshot telling the truth about what shipped.
-
-   Keeping the fixture also keeps `gen:tokens` green: `ROOT_TOKEN_NAMES` is
-   generated FROM this fixture, so an untouched fixture means an untouched ABI
-   list, and the serializer appends unknown names rather than dropping them.
-
-   Both maps are checked in BOTH directions — an entry that no longer diverges
-   fails just as loudly as an undeclared divergence. An acknowledgement nobody
-   removed is how a reverted change comes back to life unnoticed. */
-
-/** Tokens this engine emits that the 2026-08-06 sheet never had. */
-const ADDED_SINCE_FIXTURE = new Map<string, string>([
-  ["--brand-fill", "solid-fill stop, pinned to the dark slot so light fills keep the brand hue"],
-  ["--brand-fill-end", "second stop of --gradient-primary, pinned with the first"],
-  ["--brand-fill-ink", "measured label colour for --gradient-primary (ink vs white)"],
-  ["--amber-fill", "solid-fill stop for --gradient-amber"],
-  ["--amber-fill-end", "second stop of --gradient-amber"],
-  ["--amber-fill-ink", "measured label colour for --gradient-amber"],
-  ["--cobalt-fill", "solid-fill stop for --gradient-cobalt"],
-  ["--cobalt-fill-end", "second stop of --gradient-cobalt"],
-  ["--cobalt-fill-ink", "measured label colour for --gradient-cobalt"],
-  ["--electric-fill", "second stop of --gradient-avatar, floored like the other fills"],
-  ["--gradient-avatar-ink", "measured initials colour for --gradient-avatar (ink vs white)"],
-]);
-
-/** Tokens whose value we deliberately changed. For the three `*-fill` retargets
-    the RENDERED dark colour is unchanged — only the reference moved, which an
-    old-vs-new resolved diff across all six presets confirmed, and light is what
-    moves. `--gradient-avatar` is the exception and is a real recomposition: it
-    swaps one stop family outright, so both schemes render differently. */
-const RETARGETED_SINCE_FIXTURE = new Map<string, string>([
-  ["--gradient-primary", "stops read --brand-fill*, so the light fill stops going olive"],
-  ["--gradient-amber", "stops read --amber-fill*"],
-  ["--gradient-cobalt", "stops read --cobalt-fill*"],
-  ["--gradient-avatar", "recomposed as --cobalt-fill -> --electric-fill; the sheet paired the searched --electric -> --mint"],
-]);
-
-/* ── The gate ─────────────────────────────────────────────────────────────── */
-
-describe("golden — resolveBrand(obsidian) reproduces the shipped sheet", () => {
-  it("emits exactly the ABI's token set, plus only the declared additions", () => {
-    const abi = new Set<string>(ROOT_TOKEN_NAMES);
-    const emitted = new Set(brand.dark.keys());
-    expect([...abi].filter((n) => !emitted.has(n)), "in the sheet, not emitted").toEqual([]);
-    expect(
-      [...emitted].filter((n) => !abi.has(n) && !ADDED_SINCE_FIXTURE.has(n)),
-      "emitted, not in the sheet and not declared as an addition",
-    ).toEqual([]);
-    /* The other direction: a declared addition that is no longer emitted is a
-       stale entry, not a free pass. */
-    expect(
-      [...ADDED_SINCE_FIXTURE.keys()].filter((n) => !emitted.has(n)),
-      "declared as added but not emitted — delete the entry",
-    ).toEqual([]);
+describe(`golden — resolveBrand(${DEFAULT_PRESET_ID})`, () => {
+  it("rebuilds the ladder byte-exactly from its relative geometry", () => {
+    /* The claim that makes the geometry usable on a client's hex: converting a
+       ramp to OKLCH offsets and back, through gamut clamping and 8-bit
+       rounding, loses nothing. If this drifts, every family in every preset
+       drifts with it — there is exactly one geometry now, so this single
+       assertion covers the whole catalogue. */
+    const rebuilt = buildRamp(LADDER_REFERENCE[LADDER_SEED_INDEX]!, LADDER);
+    expect(rebuilt).toEqual(LADDER_REFERENCE.map((h) => normalizeHex(h)));
   });
 
-  it("reproduces every :root value except the declared retargets", () => {
-    const diffs: Diff[] = [];
-    for (const token of ROOT_TOKEN_NAMES) {
-      if (RETARGETED_SINCE_FIXTURE.has(token)) continue;
-      const expected = fixtureRoot.get(token);
-      const actual = brand.dark.get(token);
-      if (expected === undefined || actual === undefined) continue; // covered by the set test
-      const diff = compare(token, "dark", expected, actual);
-      if (diff) diffs.push(diff);
-    }
-    expect(diffs).toEqual([]);
-  });
-
-  it("reproduces every computed light-scheme value except the declared retargets", () => {
-    const diffs: Diff[] = [];
-    for (const token of ROOT_TOKEN_NAMES) {
-      if (RETARGETED_SINCE_FIXTURE.has(token)) continue;
-      const expected = fixtureLightResolved.get(token);
-      const actual = brand.light.get(token);
-      if (expected === undefined || actual === undefined) continue;
-      const diff = compare(token, "light", expected, actual);
-      if (diff) diffs.push(diff);
-    }
-    expect(diffs).toEqual([]);
-  });
-
-  it("every declared retarget actually still differs from the sheet", () => {
-    const stale: string[] = [];
-    for (const token of RETARGETED_SINCE_FIXTURE.keys()) {
-      const expected = fixtureRoot.get(token);
-      const actual = brand.dark.get(token);
-      expect(expected, `${token} is not in the fixture at all`).toBeDefined();
-      if (expected !== undefined && actual !== undefined && canonical(expected) === canonical(actual)) {
-        stale.push(token);
+  it("rebuilds every preset's every family ramp byte-exactly", () => {
+    const broken: string[] = [];
+    for (const id of PRESET_IDS) {
+      const preset = PRESETS[id];
+      if (!preset) continue;
+      for (const [f, spec] of Object.entries(preset.families)) {
+        const built = buildRamp(spec.seed, spec.geometry);
+        const remeasured = buildRamp(built[LADDER_SEED_INDEX]!, measureGeometry(built, LADDER_SEED_INDEX));
+        for (const [i, hex] of built.entries()) {
+          if (remeasured[i] !== hex) broken.push(`${id}.${f}[${i}] ${hex} -> ${remeasured[i]}`);
+        }
       }
     }
-    expect(stale, "declared as retargeted but identical to the sheet — delete the entry").toEqual([]);
+    expect(broken).toEqual([]);
   });
 
-  it("overrides exactly the tokens the light block overrides", () => {
-    /* The sheet declares 80 names in its light block, of which 79 carry a value
-       that differs from `:root`. The 80th is `--rose-deep`, restated identically —
-       harmless, and not reproduced, because emitting a light rule that repeats a
-       `:root` value is how a later brand override silently stops applying in
-       light mode. */
-    const emitted = ROOT_TOKEN_NAMES.filter(
-      (n) => brand.light.get(n) !== undefined && brand.light.get(n) !== brand.dark.get(n),
-    );
-    const expected = [...LIGHT_FLIPPED_TOKEN_NAMES];
-    expect([...expected].filter((n) => !emitted.includes(n)), "sheet flips it, engine does not").toEqual([]);
-    expect(emitted.filter((n) => !expected.includes(n as never)), "engine flips it, sheet does not").toEqual([]);
+  it("emits exactly the ABI's token set", () => {
+    /* Both directions. A token in the ABI the engine stopped emitting renders
+       whatever a consuming package vendored as its fallback — silently, with no
+       console error, on a page that is supposed to be branded. A token the
+       engine emits that the ABI never heard of is invisible to every consumer. */
+    const emitted = new Set(brand.dark.keys());
+    const abi = new Set<string>(ROOT_TOKEN_NAMES);
+    expect([...abi].filter((n) => !emitted.has(n)), "in the ABI, not emitted").toEqual([]);
+    expect([...emitted].filter((n) => !abi.has(n)), "emitted, absent from the ABI").toEqual([]);
   });
 
   it("every channel token is the RGB triple of its base, in BOTH schemes", () => {
-    /* The invariant that used to be a comment asking the next editor to
-       remember. 32 call sites across the button and card packages do
-       `rgb(var(--x-channel) / a)`; a channel that disagrees with its hex renders
-       a different colour through every one of them with no error anywhere. */
+    /* Structurally guaranteed by the `channel` TokenRule rather than by a
+       naming convention, and asserted anyway: 32 call sites across the two
+       sibling packages do `rgb(var(--x-channel) / α)`, and a hex written there
+       invalidates all of them at computed-value time with no error anywhere. */
     const wrong: string[] = [];
     for (const [channel, base] of CHANNEL_PAIRS) {
-      for (const [scheme, map] of [["dark", brand.dark], ["light", brand.light]] as const) {
-        const hex = map.get(base)!;
-        const expected = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)).join(" ");
+      for (const scheme of ["dark", "light"] as const) {
+        const map = scheme === "dark" ? brand.dark : brand.light;
+        const expected = hexToTriple(map.get(base)!);
         if (map.get(channel) !== expected) {
-          wrong.push(`${scheme} ${channel} = ${map.get(channel)}, base ${base} = ${hex} -> ${expected}`);
+          wrong.push(`${channel} (${scheme}): ${map.get(channel)} != ${expected} (${base})`);
         }
       }
     }
@@ -236,74 +119,67 @@ describe("golden — resolveBrand(obsidian) reproduces the shipped sheet", () =>
     }
   });
 
-  it("rebuilds every ramp byte-exactly from its relative geometry", () => {
-    /* The claim that makes the geometry usable on a client's hex: converting a
-       ramp to OKLCH offsets and back through gamut clamping and 8-bit rounding
-       loses nothing. If this drifts, every preset drifts with it. */
-    const broken: string[] = [];
-    for (const [id, hexes] of Object.entries(OBSIDIAN_RAMPS)) {
-      const seedIndex = OBSIDIAN_SEED_INDEX[id as keyof typeof OBSIDIAN_SEED_INDEX];
-      const rebuilt = buildRamp(hexes[seedIndex]!, measureGeometry(hexes, seedIndex));
-      for (const [i, hex] of hexes.entries()) {
-        if (rebuilt[i] !== normalizeHex(hex)) broken.push(`${id}[${i}] ${hex} -> ${rebuilt[i]}`);
-      }
-    }
-    expect(broken).toEqual([]);
-  });
-
   it("serializes to CSS that parses back to the same values", () => {
     /* Round-trip through the emitter, so a serialization bug cannot hide behind
-       a correct in-memory map. This is the artifact the CDN actually ships. */
-    const css = serializeBrandCss(brand);
+       a correct in-memory map. This is the artifact that actually ships. */
+    const css = serializeBrandCss(brand, { order: Object.keys(DEFAULT.provenance) });
     const root = readTokens(css, ":root");
     const light = new Map([...root, ...readTokens(css, '[data-mui-color-scheme="light"]')]);
 
-    const diffs: Diff[] = [];
+    const diffs: string[] = [];
     for (const token of ROOT_TOKEN_NAMES) {
-      const d1 = compare(token, "dark", brand.dark.get(token)!, root.get(token)!);
-      const d2 = compare(token, "light", brand.light.get(token)!, light.get(token)!);
-      if (d1) diffs.push(d1);
-      if (d2) diffs.push(d2);
+      if (brand.dark.get(token) !== root.get(token)) {
+        diffs.push(`${token} (dark): ${brand.dark.get(token)} != ${root.get(token)}`);
+      }
+      if (brand.light.get(token) !== light.get(token)) {
+        diffs.push(`${token} (light): ${brand.light.get(token)} != ${light.get(token)}`);
+      }
     }
     expect(diffs).toEqual([]);
     expect(css).toContain("color-scheme: light;");
   });
 
-  it("reports only the accessibility failures the preset acknowledges", () => {
-    expect(brand.warnings.map((w) => w.message)).toEqual([]);
+  it("emits the sheet in the PRESET's declared order, not the ABI's", () => {
+    /* The cycle-break, asserted rather than commented. `ROOT_TOKEN_NAMES` is
+       generated by parsing this sheet, so if the sheet were ordered by it the
+       order would be self-referential — and with the seed fixture deleted it
+       would settle on "alphabetical, forever". `sheetOrder()` in
+       src/presets/base.ts is the one place the order is decided. */
+    const declared = Object.keys(DEFAULT.provenance).filter((n) => brand.dark.has(n));
+    const css = serializeBrandCss(brand, { order: Object.keys(DEFAULT.provenance) });
+    const emitted = [...readTokens(css, ":root").keys()].filter((n) => !n.startsWith("--tokens-"));
+    expect(emitted).toEqual(declared);
   });
 
-  it("every acknowledged failure still measures what it says it measures", () => {
-    /* An acknowledgement is a person having looked at a number. If the number
-       moved, nobody has looked at the current one — and a listed failure that
-       now PASSES is worse still, because it means a fix landed and the note
-       telling the next reader it is broken never came out. */
-    const drifted: string[] = [];
-    for (const row of measureAcknowledged(OBSIDIAN, brand)) {
-      if (Math.abs(row.actual - row.recorded) > 0.01) {
-        drifted.push(`${row.token} (${row.scheme}): recorded ${row.recorded}, measured ${row.actual.toFixed(2)}`);
-      }
-    }
-    expect(drifted).toEqual([]);
+  it("reports no accessibility failures at all", () => {
+    /* Not "only the ones acknowledged" — none. Every duty is `enforce: "search"`
+       and `acknowledged` is empty, which is the whole point of authoring a
+       catalogue rather than reproducing one: the previous six presets carried
+       four measured, shipping defects between them because searching would have
+       restyled live pages under a pixel-identity promise. */
+    expect(brand.warnings.map((w) => `${w.token}|${w.scheme}|${w.ratio.toFixed(2)}`)).toEqual([]);
+    expect(DEFAULT.acknowledged).toEqual([]);
+    expect(measureAcknowledged(DEFAULT, brand)).toEqual([]);
   });
 
-  it("the acknowledged failures are exactly the ones the FIXTURE has", () => {
-    /* Measured against the sheet itself, not against the engine — so the
-       allowlist cannot grow to cover an engine bug. If the engine broke a token
-       the fixture gets right, that token fails here even if somebody added it
-       to `acknowledged`. */
+  it("every duty is genuinely met, measured independently of the resolver", () => {
+    /* The resolver decides whether a duty is met and then reports it, so
+       `warnings: []` is the resolver agreeing with itself. This re-measures
+       every duty from the emitted values. */
     const failing: string[] = [];
-    for (const duty of OBSIDIAN.duties) {
-      for (const scheme of duty.scheme === "both" ? (["dark", "light"] as const) : [duty.scheme]) {
-        const map = scheme === "dark" ? fixtureRoot : fixtureLightResolved;
+    for (const duty of DEFAULT.duties) {
+      const schemes = duty.scheme === "both" ? (["dark", "light"] as const) : [duty.scheme];
+      for (const scheme of schemes) {
+        const map = scheme === "dark" ? brand.dark : brand.light;
         const fg = map.get(duty.token)!;
         const bg = duty.against.startsWith("--") ? map.get(duty.against)! : duty.against;
-        if (contrastRatio(fg, bg) < duty.min) failing.push(`${duty.token}|${scheme}`);
+        const ratio = contrastRatio(fg, bg);
+        if (ratio < duty.min) {
+          failing.push(`${duty.token}|${scheme}: ${ratio.toFixed(2)} < ${duty.min}`);
+        }
       }
     }
-    expect(failing.sort()).toEqual(
-      OBSIDIAN.acknowledged.map((a) => `${a.token}|${a.scheme}`).sort(),
-    );
+    expect(failing).toEqual([]);
   });
 
   it("reports what fraction of the sheet is actually derived", () => {
@@ -319,19 +195,18 @@ describe("golden — resolveBrand(obsidian) reproduces the shipped sheet", () =>
         `fixed (categorical, deliberately not branded): ${counts.fixed}`,
     );
     expect(total).toBe(ROOT_TOKEN_NAMES.length);
-
     /* Asserted exactly, not as a floor. A floor lets a refactor quietly move
-       work from "derived" to "fixed" and still pass, which would make the number
-       this test prints meaningless — and that number is the only thing keeping
-       "reproduces 166 tokens" from being a misleading headline.
+       work from "derived" to "fixed" and still pass, which would make the
+       printed number meaningless — and that number is the only thing keeping
+       "the engine emits N tokens" from being a misleading headline. */
+    expect(counts).toEqual(PROVENANCE_HISTOGRAM);
+  });
 
-       Read it as: 66 tokens are DELIBERATELY not branded (the light dropdown
-       island, the categorical avatar and status palettes, the on-fill inks) —
-       that is stated design policy, not a shortfall. Of the 100 a brand does
-       reach, 63 move when a client changes a seed and 37 are brand-independent
-       templates (neutral veils, depth shadows, radii, fonts, gradients).
-       Changing any of these three numbers is a design decision and must show up
-       in a diff. */
-    expect(counts).toEqual({ derived: 63, structural: 37, fixed: 66 });
+  it("the six roles are exactly the families every preset declares", () => {
+    for (const id of PRESET_IDS) {
+      const preset = PRESETS[id];
+      if (!preset) continue;
+      expect(Object.keys(preset.families).sort(), id).toEqual([...ROLE_NAMES].sort());
+    }
   });
 });

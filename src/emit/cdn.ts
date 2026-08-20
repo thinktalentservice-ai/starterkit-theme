@@ -2,13 +2,13 @@
  * to a public URL and `@import`/`<link>` into ANY page, not just this one.
  *
  * This supersedes a host-app stopgap (`scripts/gen-cdn-sheet.mjs` in
- * template-starterkit-nextjs) that derived a single CDN copy from obsidian's
- * hand-authored sheet, because the published copy had gone two months stale
- * and was still serving a WCAG failure a hand-fix had already corrected
- * locally. That stopgap's own header names its replacement as "phase 7b in
- * @devopsnext/starterkit-theme, which emits one sheet per brand preset" —
- * this file is that replacement, generalized from one hand-tuned sheet to all
- * six engine-resolved presets.
+ * template-starterkit-nextjs) that derived a single CDN copy from one
+ * hand-authored preset's sheet, because the published copy had gone two
+ * months stale and was still serving a WCAG failure a hand-fix had already
+ * corrected locally. That stopgap's own header names its replacement as
+ * "phase 7b in @devopsnext/starterkit-theme, which emits one sheet per brand
+ * preset" — this file is that replacement, generalized from one hand-tuned
+ * sheet to every engine-resolved preset.
  *
  * FIVE INVARIANTS, ENFORCED HERE, NOT LEFT FOR A COMMENT TO PROMISE:
  *   1. never emit a self-@import
@@ -23,6 +23,7 @@
 import { resolveBrand } from "../engine/resolve";
 import { serializeBrandCss } from "../engine/serialize";
 import type { PresetSpec } from "../engine/spec";
+import { DEFAULT_PRESET_ID } from "../presets/index";
 import { ROOT_TOKEN_NAMES } from "../tokens/names";
 
 export type CdnBrandSheetOptions = {
@@ -143,22 +144,16 @@ export function buildCdnBrandSheet(preset: PresetSpec, options: CdnBrandSheetOpt
 
 /** The curated font whitelist, one `@import` per family actually referenced
  *  by a shipped preset's `--font-heading`/`--font-body`/`--font-mono`. Kept
- *  as ONE shared file rather than per-brand: the six presets pull from a
- *  fixed set of ten families total (cross-checked against every preset's
- *  literal font declarations, not assumed). `Geist Mono` is the one every
- *  preset shares (it's `--font-mono`, inherited unchanged from obsidian by
- *  all five newer presets); `Inter` is the other reused one, between
- *  meridian's body and atlas's body. The rest are one preset each. Shared
- *  file either way, so a consumer loads this once regardless of which
- *  brand(s) they end up rendering rather than re-fetching an overlapping set
- *  per brand switch.
+ *  as ONE shared file rather than per-brand, so a consumer loads this once
+ *  regardless of which brand(s) they end up rendering rather than
+ *  re-fetching an overlapping set per brand switch. The family list below
+ *  must stay cross-checked against every preset's literal font
+ *  declarations, not assumed.
  *
  *  Weight lists are a reasonable default (400/500/600/700, plus 800 for
- *  headings — matching the range obsidian's own Outfit/Plus Jakarta Sans
- *  import already uses), NOT verified against actual per-preset typography
- *  usage the way obsidian's original weights were hand-picked from real
- *  render output. Narrowing this once real pages using the 5 new presets
- *  exist is a follow-up, not a defect in this file. */
+ *  headings), NOT verified against actual per-preset typography usage.
+ *  Narrowing this once real pages using both presets exist is a follow-up,
+ *  not a defect in this file. */
 export function buildFontsSheet(): string {
   const families = [
     "family=Outfit:wght@400;500;600;700;800",
@@ -193,11 +188,14 @@ export type CdnPaths = {
   versioned: string;
   /** Short-cache — brand delivery for a consumer not tracking a pinned version. */
   latest: string;
-  /** Only obsidian gets one: the pre-migration CDN URL a consumer or a
-   *  published package's vendored-default generator may still reference. A
-   *  fresh consumer should use `latest/<id>.css`; this exists so the exact
-   *  URL that used to serve obsidian's sheet keeps serving obsidian's sheet,
-   *  not a 404, for however long anything still points at it. */
+  /** Only the default preset gets one: the pre-migration CDN URL a consumer
+   *  or a published package's vendored-default generator may still
+   *  reference. A fresh consumer should use `latest/<id>.css`; this exists
+   *  so the exact URL that used to serve the old default preset's sheet
+   *  keeps serving today's default preset's sheet, not a 404, for however
+   *  long anything still points at it. Tracks `DEFAULT_PRESET_ID` from
+   *  `../presets/index` — `src/presets/index.ts`'s own doc comment on that
+   *  constant is what asserts the two must agree. */
   legacyAlias: string | null;
 };
 
@@ -205,6 +203,6 @@ export function cdnPaths(presetId: string, packageVersion: string): CdnPaths {
   return {
     versioned: `starterkit/tokens/v${packageVersion}/${presetId}.css`,
     latest: `starterkit/tokens/latest/${presetId}.css`,
-    legacyAlias: presetId === "obsidian" ? "starterkit/colors_and_type.css" : null,
+    legacyAlias: presetId === DEFAULT_PRESET_ID ? "starterkit/colors_and_type.css" : null,
   };
 }
