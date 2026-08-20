@@ -249,31 +249,39 @@ function roleRules(f: RoleName): Record<string, TokenRule> {
 }
 
 /**
- * The avatar's start stop — the primary fill, floored so one ink can span the
- * whole blend.
+ * The start stop of `--gradient-avatar` — the primary fill, raised until it
+ * clears a CONTRAST FLOOR.
  *
- * THIS IS THE ONE PLACE A FILL IS ALLOWED TO MOVE OFF ITS SEED, and it is here
- * because a two-hue gradient has a constraint a single-hue one does not: ONE
- * label colour has to be legible over BOTH hues, and `ink` scores on the worst
- * point. Measured on the shipped seeds — elemetrik blends a dark violet
- * (`#6832FF`, L 0.53) into a light cyan (`#22D3EE`, L 0.80), so white bottoms
- * out at 1.81:1 on the cyan end and dark ink bottoms out at 3.18:1 on the
- * violet end. Neither candidate clears 4.5 anywhere across it. No choice of ink
- * fixes that; only moving a stop does.
+ * THIS IS ONE OF THE TWO PLACES A FILL IS ALLOWED TO MOVE OFF ITS SEED (the
+ * other is `AVATAR_3_FROM`), and the two are different on purpose: this one asks
+ * for a RATIO and stops the moment it has it, so a brand whose seed already
+ * passes does not move at all. `AVATAR_3_FROM` asks for a DISTANCE, so every
+ * brand moves and none can no-op. That difference is the whole difference
+ * between `--gradient-avatar` and `--gradient-avatar-3`.
  *
  * 5.5 rather than 4.5, and the extra point is bought by the TROUGH rather than
  * by the endpoint — a blend across a hue can dip below BOTH of its ends, so an
- * endpoint-tight floor leaves the interior free to fail. Swept at 41 sample
- * points: 4.5 gives a worst of 4.52 (0.02 of margin), 5.5 gives 5.50, 6.0 gives
- * 6.05. Above 6.38 THINK starts moving too, and think is the preset that should
- * not move — its blend already reads 6.38:1 with ink, so `fitContrast` returns
- * its seed untouched and this is a no-op there BY CONSTRUCTION, not by luck.
+ * endpoint-tight floor leaves the interior free to fail. Above 6.38 THINK starts
+ * moving too, and think is the preset that should not move — its seed already
+ * reads 6.38:1 with ink, so `fitContrast` returns it untouched and this is a
+ * no-op there BY CONSTRUCTION, not by luck.
  *
- * The cost is stated rather than hidden: elemetrik's avatar renders `#8576FF`,
- * a visibly lighter violet than its brand `#6832FF`. Every other elemetrik
- * surface — buttons, chips, `--gradient-primary` — still renders the exact
- * seed. The avatar is decorative identity, so it is the right place to spend
- * this; an action surface would not be.
+ * WHAT THE FLOOR NO LONGER BUYS, stated plainly rather than left in an old
+ * comment. It was set when this gradient ended on `--accent-solid`, where
+ * lifting the start was genuinely enough to make ONE ink span the sweep. The
+ * gradient now ends on `--primary-solid` itself, and no floor on the START can
+ * rescue an END that fails: elemetrik's unlifted `#6832FF` reads 3.18:1 with
+ * dark ink and 3.48:1 with white, so `--gradient-avatar` carries a sub-AA
+ * trough on that brand no matter what this number is. That shortfall is
+ * measured, listed in `property.test.ts` and owned — it is not a floor quietly
+ * failing to do its job.
+ *
+ * What 5.5 still buys is real and is why it stays: the start stop keeps the
+ * exact value it shipped with (think `#0099FF`, elemetrik `#8576FF`), so this
+ * change moves no token that was not asked to move, and elemetrik keeps a
+ * visible light-to-dark sweep rather than a flat block. On think it IS a flat
+ * block, for the same reason it is a no-op there — see `AVATAR_3_FROM` for the
+ * variant that does not have that property.
  */
 const AVATAR_FROM: ColorRef = {
   k: "lift",
@@ -282,7 +290,30 @@ const AVATAR_FROM: ColorRef = {
   min: 5.5,
 };
 
-/** The avatar gradient, sampled end to end.
+/**
+ * The start stop of `--gradient-avatar-3` — the primary fill, raised by a FIXED
+ * perceptual distance.
+ *
+ * Exists because a contrast floor cannot express "always lighter than this".
+ * `AVATAR_FROM` returns think's `#0099FF` untouched — correctly, it already
+ * passes — and a gradient from that colour to `--primary-solid` is therefore
+ * the same hex twice: a flat fill, emitted with no error, no warning, and
+ * nothing in the sheet saying the sweep is gone. A distance cannot do that.
+ *
+ * 0.12 in OKLCH L, which is roughly the gap the shared family geometry carries
+ * between two adjacent ramp steps, so the sweep reads as a deliberate step
+ * rather than a smudge: think renders `#80C0FF -> #0099FF`, elemetrik
+ * `#8678FF -> #6832FF`.
+ *
+ * It makes NO contrast claim, and inherits the same sub-AA trough
+ * `--gradient-avatar` has, from the same cause — the END stop. Do not read the
+ * larger start-stop lift as buying legibility: elemetrik measures 3.42:1 here
+ * against 3.48:1 there, i.e. very slightly WORSE, because a brighter start does
+ * nothing for a trough that sits at the far end.
+ */
+const AVATAR_3_FROM: ColorRef = { k: "lighten", ref: solidRef("primary"), dl: 0.12 };
+
+/** A gradient, sampled end to end, for an `ink` rule to score against.
  *
  *  Eleven samples instead of two, because MEASURING A GRADIENT AT ITS ENDPOINTS
  *  DOES NOT BOUND IT: sRGB decode is convex and luminance weights the channels
@@ -290,14 +321,15 @@ const AVATAR_FROM: ColorRef = {
  *  a real seed at t=0.66, which a quarter-point list steps straight over. The
  *  property test samples 21 points against these 11 on purpose: a test that
  *  measured at the same points the preset chose would only prove the preset
- *  agrees with itself. */
-const AVATAR_SAMPLES: ColorRef[] = Array.from({ length: 11 }, (_, i) =>
-  i === 0
-    ? AVATAR_FROM
-    : i === 10
-      ? solidRef("accent")
-      : { k: "mix", a: AVATAR_FROM, b: solidRef("accent"), t: i / 10 },
-);
+ *  agrees with itself.
+ *
+ *  A function rather than one const, because there are now three avatar sweeps
+ *  and a copied sample list is how two of them end up measured at different
+ *  resolutions without anyone deciding that. */
+const sweepSamples = (from: ColorRef, to: ColorRef): ColorRef[] =>
+  Array.from({ length: 11 }, (_, i) =>
+    i === 0 ? from : i === 10 ? to : { k: "mix", a: from, b: to, t: i / 10 },
+  );
 
 function sharedRules(fonts: { heading: string; body: string; mono: string }): Record<string, TokenRule> {
   return {
@@ -374,18 +406,68 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
       a: { dark: 0.85, light: 0.92 },
     },
 
-    /* Decorative identity, not an action surface — see AVATAR_FROM. The start
-       stop is its own token because it is the only fill in the catalogue that
-       is not its family's seed, and a gradient that silently disagreed with
-       `--primary-solid` with nothing naming the difference is worse than one
-       extra token. */
+    /* THREE AVATAR SWEEPS, and the reason there are three is that they are not
+       interchangeable — each trades a different thing away, and the sheet names
+       the trade instead of picking one and hiding the other two.
+
+       All three are decorative identity, not action surfaces, which is what
+       makes a start stop off the seed permissible here at all (see AVATAR_FROM).
+       Every one of them ends on `--primary-solid`, so the avatar reads as the
+       brand's primary rather than as a primary/accent blend.
+
+         --gradient-avatar    contrast-floored start -> primary.
+                              Legible on a dark-seeded brand, FLAT on a brand
+                              whose seed already clears the floor (think).
+         --gradient-avatar-2  primary -> primary hover.
+                              The only one legible on every brand BY
+                              CONSTRUCTION, and the only one whose sweep is a
+                              sheen rather than a step. Byte-identical to
+                              `--gradient-primary` — see its own note.
+         --gradient-avatar-3  fixed-distance lightened start -> primary.
+                              A real step on every brand, at the cost of the
+                              same sub-AA trough --gradient-avatar has.
+
+       The start stops are their own tokens because they are the only fills in
+       the catalogue that are not their family's seed, and a gradient silently
+       disagreeing with `--primary-solid` with nothing naming the difference is
+       worse than one extra token. */
     "--gradient-avatar-from": { kind: "solid", ref: AVATAR_FROM },
     "--gradient-avatar": literal(
-      "linear-gradient(135deg, var(--gradient-avatar-from), var(--accent-solid))",
+      "linear-gradient(135deg, var(--gradient-avatar-from), var(--primary-solid))",
     ),
     "--gradient-avatar-ink": {
       kind: "ink",
-      over: AVATAR_SAMPLES,
+      over: sweepSamples(AVATAR_FROM, solidRef("primary")),
+      candidates: [FILL_INK, FILL_WHITE],
+    },
+
+    /* Both stops are the primary family's own solid pair, so this token's value
+       is `--gradient-primary`'s value, exactly, in every preset. That is not an
+       oversight to be deduplicated away: `--gradient-primary` is the CTA fill
+       and this is the avatar mark, and folding them into one name is how a
+       later "make the avatar quieter" turns into a restyle of every primary
+       button. Two names, two jobs, same value today.
+
+       Its ink is `--primary-on-solid` by construction for the same reason —
+       same backdrops, same candidates — and `property.test.ts` asserts the
+       equality rather than assuming it, because a divergence would mean the
+       family ink's two-point `over` is under-sampling its own hover blend. */
+    "--gradient-avatar-2": literal(
+      "linear-gradient(135deg, var(--primary-solid), var(--primary-solid-hover))",
+    ),
+    "--gradient-avatar-2-ink": {
+      kind: "ink",
+      over: sweepSamples(solidRef("primary"), hoverRef("primary")),
+      candidates: [FILL_INK, FILL_WHITE],
+    },
+
+    "--gradient-avatar-3-from": { kind: "solid", ref: AVATAR_3_FROM },
+    "--gradient-avatar-3": literal(
+      "linear-gradient(135deg, var(--gradient-avatar-3-from), var(--primary-solid))",
+    ),
+    "--gradient-avatar-3-ink": {
+      kind: "ink",
+      over: sweepSamples(AVATAR_3_FROM, solidRef("primary")),
       candidates: [FILL_INK, FILL_WHITE],
     },
     "--gradient-progress": literal(
@@ -578,7 +660,8 @@ const STRUCTURAL_EXACT = new Set([
   "--btn-ghost-bg-hover", "--hover-overlay", "--shadow-card", "--shadow-elevated",
   "--shadow-dropdown", "--dd-hover-shadow", "--font-heading", "--font-body",
   "--font-mono", "--ease-entrance", "--radius", "--radius-chip", "--radius-card",
-  "--radius-pill", "--gradient-avatar", "--gradient-progress",
+  "--radius-pill", "--gradient-avatar", "--gradient-avatar-2", "--gradient-avatar-3",
+  "--gradient-progress",
   ...ROLE_NAMES.map((f) => `--gradient-${f}`),
 ]);
 
@@ -646,7 +729,12 @@ function sheetOrder(
   push(...ROLE_NAMES.map((f) => `--glow-${f}`));
   push(...ROLE_NAMES.map((f) => `--shadow-btn-${f}`));
   push(...ROLE_NAMES.map((f) => `--gradient-${f}`));
-  push("--gradient-avatar-from", "--gradient-avatar", "--gradient-avatar-ink", "--gradient-progress");
+  push(
+    "--gradient-avatar-from", "--gradient-avatar", "--gradient-avatar-ink",
+    "--gradient-avatar-2", "--gradient-avatar-2-ink",
+    "--gradient-avatar-3-from", "--gradient-avatar-3", "--gradient-avatar-3-ink",
+    "--gradient-progress",
+  );
 
   /* Anything the factory emits that this list forgot still ships, in a sorted
      tail. A token silently missing from the sheet is the failure this whole ABI

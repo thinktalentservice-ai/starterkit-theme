@@ -10,9 +10,9 @@ export const TOKENS_FIXTURE = "presets/think.css";
 /** Content hash over the token NAME set, so it changes when the contract
  *  changes — not on every rebuild. Emitted into every sheet as
  *  `--tokens-version`, and computed here rather than read back from one. */
-export const TOKENS_VERSION = "a4dbb1ed6902";
+export const TOKENS_VERSION = "ba172854e7d4";
 
-/** Every custom property a brand must define on `:root`. 163 names. */
+/** Every custom property a brand must define on `:root`. 168 names. */
 export const ROOT_TOKEN_NAMES = [
   "--void",
   "--background",
@@ -119,6 +119,11 @@ export const ROOT_TOKEN_NAMES = [
   "--gradient-avatar-from",
   "--gradient-avatar",
   "--gradient-avatar-ink",
+  "--gradient-avatar-2",
+  "--gradient-avatar-2-ink",
+  "--gradient-avatar-3-from",
+  "--gradient-avatar-3",
+  "--gradient-avatar-3-ink",
   "--gradient-progress",
   "--background-channel",
   "--black-channel",

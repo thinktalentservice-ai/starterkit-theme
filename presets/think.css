@@ -6,7 +6,7 @@
  * if used) — this file defines brand tokens, it does not define structure. */
 
 :root {
-  --tokens-version: "a4dbb1ed6902";
+  --tokens-version: "ba172854e7d4";
   --tokens-brand: "think";
   --void: #07080f;
   --background: #0d0f1a;
@@ -111,8 +111,13 @@
   --gradient-warning: linear-gradient(135deg, var(--warning-solid), var(--warning-solid-hover));
   --gradient-danger: linear-gradient(135deg, var(--danger-solid), var(--danger-solid-hover));
   --gradient-avatar-from: #0099ff;
-  --gradient-avatar: linear-gradient(135deg, var(--gradient-avatar-from), var(--accent-solid));
+  --gradient-avatar: linear-gradient(135deg, var(--gradient-avatar-from), var(--primary-solid));
   --gradient-avatar-ink: #0b0f19;
+  --gradient-avatar-2: linear-gradient(135deg, var(--primary-solid), var(--primary-solid-hover));
+  --gradient-avatar-2-ink: #0b0f19;
+  --gradient-avatar-3-from: #80c0ff;
+  --gradient-avatar-3: linear-gradient(135deg, var(--gradient-avatar-3-from), var(--primary-solid));
+  --gradient-avatar-3-ink: #0b0f19;
   --gradient-progress: linear-gradient(90deg, var(--primary-solid), var(--accent-solid));
   --background-channel: 13 15 26;
   --black-channel: 0 0 0;

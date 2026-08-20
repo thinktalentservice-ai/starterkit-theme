@@ -41,17 +41,23 @@ import { serializeBrandCss } from "./serialize";
 
 /* MEASURED, then written down.
  *
- * Read it as: 48 of the 163 tokens are DELIBERATELY not branded — the light
+ * Read it as: 48 of the 168 tokens are DELIBERATELY not branded — the light
  * dropdown island (34), the categorical status palette (6+6) and the two fixed
  * overlay channel constants. That is stated design policy, not a shortfall; the
  * dropdown is the escape hatch a client uses when a brand turns out unreadable,
- * so it must not be painted by that brand. Of the 115 a brand does reach, 78
- * move when a seed changes and 37 are brand-independent templates (the neutral
+ * so it must not be painted by that brand. Of the 120 a brand does reach, 81
+ * move when a seed changes and 39 are brand-independent templates (the neutral
  * veils, the depth shadows, the radii, the fonts, the gradient var() strings).
+ *
+ * The two avatar variants moved this by 5: `--gradient-avatar-2` and
+ * `--gradient-avatar-3` are structural (a `var()` template that reads the same
+ * on every brand), and `--gradient-avatar-2-ink`, `--gradient-avatar-3-from`
+ * and `--gradient-avatar-3-ink` are derived (all three are resolved from the
+ * primary seed).
  *
  * Changing any of these three numbers is a design decision and must show up in
  * a diff. */
-const PROVENANCE_HISTOGRAM = { derived: 78, structural: 37, fixed: 48 };
+const PROVENANCE_HISTOGRAM = { derived: 81, structural: 39, fixed: 48 };
 
 const DEFAULT = PRESETS[DEFAULT_PRESET_ID]!;
 const brand = resolveBrand(DEFAULT);

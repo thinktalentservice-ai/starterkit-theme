@@ -213,6 +213,32 @@ export type ColorRef =
    *  This is a FLOOR on the fill, not a target: `fitContrast` walks nearest
    *  first, so a preset moves as little as it can and keeps its own hue. */
   | { k: "lift"; ref: ColorRef; against: ColorRef; min: number }
+  /** Raise `ref` by a FIXED `dl` in OKLCH L, re-clamping chroma into sRGB.
+   *
+   *  The deliberate opposite of `lift`, and the pair only makes sense read
+   *  together. `lift` is a CONTRAST FLOOR: it walks until a ratio is met and
+   *  stops, so a seed that already passes does not move at all. That no-op is
+   *  the whole point there — a fill must not be restyled to satisfy a
+   *  requirement it already satisfies.
+   *
+   *  It is also exactly why `lift` cannot express "always a lighter version of
+   *  this colour". A gradient whose start stop is `lift`ed and whose end stop is
+   *  the raw seed renders FLAT on any brand whose seed already clears the floor:
+   *  think's `#0099ff` reads 6.38:1 against the fill ink, `AVATAR_FROM` asks for
+   *  5.5, so both stops resolve to the same hex and the sweep disappears with no
+   *  error anywhere. Measured on the shipped preset, not hypothesised.
+   *
+   *  So this rule takes a distance, not a target: every brand moves, by the same
+   *  perceptual amount, and none of them can no-op. It makes no contrast claim
+   *  whatsoever — whether the resulting blend is legible is the `ink` rule's
+   *  question, and for a blend ending on an unlifted fill the honest answer may
+   *  be "it is not", which is recorded rather than hidden.
+   *
+   *  `clampChroma` rather than a raw L bump: pushing L on a saturated hue walks
+   *  straight out of sRGB, and an out-of-gamut OKLCH triple serialises to a hex
+   *  that is not the colour asked for. Same guard `emittableRay` applies at
+   *  every step of a `lift`. */
+  | { k: "lighten"; ref: ColorRef; dl: number }
   /** A point ON a `linear-gradient` between `a` and `b`, at position `t` in
    *  [0,1]. Channel-wise lerp in GAMMA space, which is what the browser does
    *  for a default-colour-space CSS gradient — not an OKLCH or linear-light

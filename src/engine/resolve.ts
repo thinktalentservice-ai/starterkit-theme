@@ -9,7 +9,8 @@
  * across 32 call sites in two published packages.
  */
 import { contrastRatio, fitContrast } from "../color/contrast";
-import { hexToOklch, hexToTriple, normalizeHex } from "../color/oklch";
+import { clampChroma } from "../color/gamut";
+import { hexToOklch, hexToTriple, normalizeHex, oklchToHex } from "../color/oklch";
 import { buildRamp, rampAt, slotIndex } from "./ramp";
 import type {
   BrandWarning,
@@ -137,6 +138,23 @@ function resolveRef(ref: ColorRef, scheme: SchemeName, ctx: Context): string {
          colour and let the legibility gate REPORT it, rather than turn a
          contrast miss into a thrown page. */
       return liftCached(base, against, ref.min);
+    }
+
+    case "lighten": {
+      /* Validated here rather than trusted, on the `darkChromaRetention`
+         precedent: a `dl` of 0 or NaN produces a silent identity — the exact
+         flat-gradient failure this ref exists to make impossible — and a `dl`
+         above 1 is meaningless in OKLCH. It is a preset-authoring field no
+         tenant document can reach, so a bad value is a bug in this repo and
+         throwing is the same treatment a preset missing `--surface` gets. */
+      if (!Number.isFinite(ref.dl) || ref.dl <= 0 || ref.dl >= 1) {
+        throw new Error(`lighten: dl must be in (0, 1), got ${ref.dl}`);
+      }
+      const base = hexToOklch(normalizeHex(resolveRef(ref.ref, scheme, ctx)));
+      /* Clamped at 1 so a near-white seed saturates instead of wrapping; the
+         chroma clamp then pulls the result back into sRGB, which is what stops
+         a lightened blue from serialising as a colour nobody chose. */
+      return oklchToHex(clampChroma({ ...base, l: Math.min(1, base.l + ref.dl) }));
     }
   }
 }

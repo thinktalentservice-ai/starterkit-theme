@@ -39,6 +39,53 @@ const PRESET_ENTRIES = Object.entries(PRESETS).filter(
 
 const RESOLVED = PRESET_ENTRIES.map(([id, preset]) => ({ id, preset, brand: resolveBrand(preset) }));
 
+/** The three avatar sweeps, as `[gradient, startToken, endToken, inkToken]`.
+ *
+ *  The START-STOP TOKEN, not the ref it derives from: `--gradient-avatar-from`
+ *  and `--gradient-avatar-3-from` are `--primary-solid` transformed two
+ *  different ways, and measuring the untransformed seed would test gradients
+ *  the sheet does not contain. */
+const AVATAR_SWEEPS = [
+  ["--gradient-avatar", "--gradient-avatar-from", "--primary-solid", "--gradient-avatar-ink"],
+  ["--gradient-avatar-2", "--primary-solid", "--primary-solid-hover", "--gradient-avatar-2-ink"],
+  ["--gradient-avatar-3", "--gradient-avatar-3-from", "--primary-solid", "--gradient-avatar-3-ink"],
+] as const;
+
+/**
+ * MEASURED SUB-AA TROUGHS, by `preset|scheme|gradient`, with the ratio read at
+ * the time of writing.
+ *
+ * ROOT CAUSE, one for all four entries: `--gradient-avatar` and
+ * `--gradient-avatar-3` both END on `--primary-solid`, and elemetrik's primary
+ * is a dark violet (`#6832FF`) that reads 3.18:1 against the dark fill ink and
+ * 3.48:1 against white. No ink clears 4.5:1 anywhere on a blend containing it.
+ * The only fix is to move `--primary-solid`, which is the fill under every
+ * primary button and is deliberately never darkened for contrast — so this is
+ * acknowledged rather than searched.
+ *
+ * OWNER: whoever picks which avatar sweep the app renders.
+ * `--gradient-avatar-2` has no entry here and needs none — it clears AA on both
+ * brands by construction, and it is the one to reach for if the avatar is going
+ * to carry initials. These two are for the case where it carries a photo, a
+ * glyph, or nothing.
+ *
+ * Both schemes are listed even though the four ratios come in identical pairs.
+ * Solid fills are scheme-invariant BY DESIGN, so the pairs matching is a
+ * property worth failing on if it ever stops holding, not a redundancy to
+ * collapse.
+ */
+const AVATAR_SHORTFALLS: Record<string, number> = {
+  "elemetrik|dark|--gradient-avatar": 3.48,
+  "elemetrik|light|--gradient-avatar": 3.48,
+  "elemetrik|dark|--gradient-avatar-3": 3.42,
+  "elemetrik|light|--gradient-avatar-3": 3.42,
+};
+
+/** How far a recorded ratio may move before it must be re-read and re-decided.
+ *  Wide enough to absorb an 8-bit rounding step, far too narrow to absorb a
+ *  seed change. */
+const AVATAR_DRIFT = 0.05;
+
 /** Every (preset, scheme, family) triple, which is what most of these iterate. */
 function* cells() {
   for (const { id, preset, brand } of RESOLVED) {
@@ -179,14 +226,25 @@ describe("property — invariants across every preset, both schemes", () => {
     expect(bad).toEqual([]);
   });
 
-  it("9. --gradient-avatar-ink clears AA across the WHOLE blend, not just its two ends", () => {
+  it("9. every avatar sweep's ink is measured across the WHOLE blend, and its shortfalls are exactly the recorded ones", () => {
     /* MEASURING A GRADIENT AT ITS ENDPOINTS DOES NOT BOUND IT — sRGB decode is
        convex and luminance weights the channels very unevenly, so a blend across
-       a hue can dip BELOW both ends. The avatar is the one deliberate two-hue
-       fill (primary -> accent), so it is the one that needs sampling. 21 samples
-       here against the 11 the preset measures at: the test must be strictly
-       finer than the thing it is testing, or it only proves the preset agrees
-       with itself at the points it already chose. */
+       a hue can dip BELOW both ends. 21 samples here against the 11 each preset
+       measures at: the test must be strictly finer than the thing it is testing,
+       or it only proves the preset agrees with itself at the points it chose.
+
+       WHY THIS IS A LEDGER AND NOT `expect(bad).toEqual([])`. It used to be the
+       stricter assertion, and it could be, because the one avatar sweep ended on
+       `--accent-solid` and a lift on the START was enough to clear the whole
+       blend. Two of the three sweeps now end on `--primary-solid` itself, which
+       is an ACTION-SURFACE FILL the engine is not allowed to move — so on a
+       dark-seeded brand no ink clears 4.5:1 anywhere across them, and no floor,
+       lift or candidate list can change that. The honest options were to delete
+       the variants or to record what they cost. They are recorded, with the
+       measured ratio, so drift in EITHER direction fails: a regression pushes a
+       ratio out of tolerance, and a fix leaves a stale entry that this test
+       reports as loudly as a new failure. An acknowledgement nobody removes is
+       how a fixed bug gets re-shipped. */
     const bad: string[] = [];
     const lerp = (a: string, b: string, t: number) => {
       const h = (x: string) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
@@ -195,25 +253,94 @@ describe("property — invariants across every preset, both schemes", () => {
       const c = (x: number, y: number) => Math.round(x + (y - x) * t).toString(16).padStart(2, "0");
       return `#${c(ar!, br!)}${c(ag!, bg!)}${c(ab!, bb!)}`;
     };
+    const unseen = new Set(Object.keys(AVATAR_SHORTFALLS));
     for (const { id, brand } of RESOLVED) {
       for (const scheme of SCHEMES) {
         const map = scheme === "dark" ? brand.dark : brand.light;
-        const ink = map.get("--gradient-avatar-ink")!;
-        /* `--gradient-avatar-from`, NOT `--primary-solid`. They are the same
-           colour for think and deliberately differ for elemetrik, whose violet
-           is floored so one ink can span the blend — measuring the unfloored
-           stop here would test a gradient the page never renders, and would
-           have reported a failure the sheet does not have. */
-        const from = map.get("--gradient-avatar-from")!;
-        const to = map.get("--accent-solid")!;
-        for (let i = 0; i <= 20; i += 1) {
-          const stop = lerp(from, to, i / 20);
-          const r = contrastRatio(ink, stop);
-          if (r < 4.5) bad.push(`${id}|${scheme}|avatar t=${(i / 20).toFixed(2)} ${stop}: ${r.toFixed(2)}`);
+        for (const [gradient, fromToken, toToken, inkToken] of AVATAR_SWEEPS) {
+          const ink = map.get(inkToken)!;
+          /* The START-STOP TOKEN, never the raw seed it derives from. They are
+             the same colour for think and deliberately differ for elemetrik, and
+             measuring the underived stop would test a gradient the page never
+             renders. */
+          const from = map.get(fromToken)!;
+          const to = map.get(toToken)!;
+          let worst = Infinity;
+          let at = 0;
+          for (let i = 0; i <= 20; i += 1) {
+            const r = contrastRatio(ink, lerp(from, to, i / 20));
+            if (r < worst) {
+              worst = r;
+              at = i / 20;
+            }
+          }
+          const key = `${id}|${scheme}|${gradient}`;
+          const ack = AVATAR_SHORTFALLS[key];
+          if (worst >= 4.5) {
+            if (ack !== undefined) {
+              bad.push(`${key}: now measures ${worst.toFixed(2)} and PASSES — delete the stale shortfall entry (${ack})`);
+            }
+            continue;
+          }
+          unseen.delete(key);
+          if (ack === undefined) {
+            bad.push(`${key}: ${worst.toFixed(2)} at t=${at.toFixed(2)} — unrecorded sub-AA trough`);
+          } else if (Math.abs(worst - ack) > AVATAR_DRIFT) {
+            bad.push(`${key}: ${worst.toFixed(2)} drifted from recorded ${ack}`);
+          }
+        }
+      }
+    }
+    for (const key of unseen) bad.push(`${key}: recorded shortfall never measured — the sweep or preset is gone`);
+    expect(bad).toEqual([]);
+  });
+
+  it("9b. --gradient-avatar-2-ink IS --primary-on-solid, in every preset and scheme", () => {
+    /* Not a tautology, and worth its own assertion: `--gradient-avatar-2`'s two
+       stops ARE `--primary-solid` and `--primary-solid-hover`, so the ink that
+       is correct for a primary button is by definition the ink that is correct
+       for this sweep. The two rules reach it differently — the family ink scores
+       over the two endpoints, this one over 11 samples of the blend between them
+       — so a divergence would not be cosmetic. It would mean `--primary-on-solid`
+       is under-sampling its own hover blend and every solid primary button in
+       the app carries a trough nobody measured. */
+    const bad: string[] = [];
+    for (const { id, brand } of RESOLVED) {
+      for (const scheme of SCHEMES) {
+        const map = scheme === "dark" ? brand.dark : brand.light;
+        const sweep = map.get("--gradient-avatar-2-ink");
+        const family = map.get("--primary-on-solid");
+        if (sweep !== family) bad.push(`${id}|${scheme}: ${sweep} != ${family}`);
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it("9c. --gradient-avatar-3's start stop moves on EVERY brand, which is the only reason it exists", () => {
+    /* The defect this variant was added to avoid is silent: a contrast-floored
+       start stop no-ops on a brand whose seed already passes, so
+       `--gradient-avatar` renders start === end — a flat fill emitted as a
+       `linear-gradient`, with nothing in the sheet or the warnings saying the
+       sweep is gone. think is exactly that brand, so asserting "3's stops differ"
+       without also asserting "and 1's do not, on think" would pass on a
+       `lighten` that had quietly become a no-op. Both halves, or neither. */
+    const bad: string[] = [];
+    for (const { id, brand } of RESOLVED) {
+      for (const scheme of SCHEMES) {
+        const map = scheme === "dark" ? brand.dark : brand.light;
+        const primary = map.get("--primary-solid")!;
+        if (map.get("--gradient-avatar-3-from") === primary) {
+          bad.push(`${id}|${scheme}|--gradient-avatar-3: start stop equals --primary-solid (${primary}) — the sweep is flat`);
         }
       }
     }
     expect(bad).toEqual([]);
+    /* The documented flat case, asserted so it stays a known cost rather than
+       becoming a surprise: think's seed clears AVATAR_FROM's floor, so
+       `--gradient-avatar` IS flat there. If this ever stops being true the floor
+       or the seed moved, and the comment on AVATAR_FROM is out of date. */
+    const think = RESOLVED.find((r) => r.id === "think")!;
+    expect(think.brand.dark.get("--gradient-avatar-from")).toBe(think.brand.dark.get("--primary-solid"));
   });
 
   it("10. every channel token is the RGB triple of its base, in both schemes, every preset", () => {
