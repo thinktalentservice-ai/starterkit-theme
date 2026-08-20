@@ -1,4 +1,4 @@
-/* The 5 CDN-emission invariants, tested against all 6 shipped presets — not
+/* The 5 CDN-emission invariants, tested against all 2 shipped presets — not
  * against a synthetic fixture. A CDN publish is external distribution; a
  * regression here means a public URL serves something unsafe, which is a
  * strictly worse failure mode than a package-internal file drifting. */
@@ -16,8 +16,8 @@ describe("CDN emitter — the 5 invariants, all 6 presets", () => {
   // Every "all 6 presets" test below iterates PRESET_ENTRIES — if the
   // registry ever lost an entry, those tests would silently narrow their own
   // scope instead of failing. Pin the count directly.
-  it("sanity: PRESET_ENTRIES actually has all 6 presets, not a silently narrowed subset", () => {
-    expect(PRESET_ENTRIES).toHaveLength(6);
+  it("sanity: PRESET_ENTRIES actually has all 2 presets, not a silently narrowed subset", () => {
+    expect(PRESET_ENTRIES).toHaveLength(2);
   });
 
   it("1. never emits a self-@import (or any @import at all)", () => {
@@ -43,12 +43,12 @@ describe("CDN emitter — the 5 invariants, all 6 presets", () => {
     // component rule with no :root at all (1 brace, "not more than 2"). The
     // shape check in assertCdnSafe must reject both — verified directly
     // here, not just trusted from the real presets never triggering it.
-    const valid = buildCdnBrandSheet(PRESETS.obsidian!, { packageVersion: VERSION });
+    const valid = buildCdnBrandSheet(PRESETS.think!, { packageVersion: VERSION });
     const withTrailingComponentRule = `${valid}\n.evil { color: red; }`;
-    expect(() => assertCdnSafe(withTrailingComponentRule, "obsidian")).toThrow(/expected shape/);
+    expect(() => assertCdnSafe(withTrailingComponentRule, "think")).toThrow(/expected shape/);
 
     const lightBlockOnly = valid.slice(valid.indexOf('[data-mui-color-scheme="light"]'));
-    expect(() => assertCdnSafe(lightBlockOnly, "obsidian")).toThrow(/expected shape/);
+    expect(() => assertCdnSafe(lightBlockOnly, "think")).toThrow(/expected shape/);
   });
 
   it("3. never embeds a font @import — buildFontsSheet is the only file that carries one", () => {
@@ -85,9 +85,9 @@ describe("CDN emitter — the 5 invariants, all 6 presets", () => {
     // means a future header edit that reintroduces the word can't silently
     // reopen the same bug — this test would catch it directly, rather than
     // depending on today's header wording happening not to trigger it.
-    const withCommentMentioningImport = buildCdnBrandSheet(PRESETS.obsidian!, { packageVersion: VERSION });
+    const withCommentMentioningImport = buildCdnBrandSheet(PRESETS.think!, { packageVersion: VERSION });
     expect(withCommentMentioningImport).toMatch(/defines no component rule or reset/); // sanity: the mention is really there
-    expect(() => assertCdnSafe(withCommentMentioningImport, "obsidian")).not.toThrow();
+    expect(() => assertCdnSafe(withCommentMentioningImport, "think")).not.toThrow();
   });
 
   it("assertCdnSafe throws with every violation listed, not just the first", () => {
@@ -105,12 +105,12 @@ describe("CDN emitter — the 5 invariants, all 6 presets", () => {
     }
   });
 
-  it("cdnPaths: obsidian gets a legacy alias, no other preset does", () => {
+  it("cdnPaths: think gets a legacy alias, elemetrik does not", () => {
     for (const [id] of PRESET_ENTRIES) {
       const paths = cdnPaths(id, VERSION);
       expect(paths.versioned, id).toBe(`starterkit/tokens/v${VERSION}/${id}.css`);
       expect(paths.latest, id).toBe(`starterkit/tokens/latest/${id}.css`);
-      if (id === "obsidian") {
+      if (id === "think") {
         expect(paths.legacyAlias).toBe("starterkit/colors_and_type.css");
       } else {
         expect(paths.legacyAlias, id).toBeNull();

@@ -8,24 +8,41 @@
    silently, with no console error, on a page that is supposed to be branded.
    A hand-maintained list is how DESIGN.md fell 42 tokens behind the sheet.
 
-   THE FIXTURE IS ALSO THE GOLDEN TEST INPUT. src/tokens/__fixtures__/ holds a
-   byte-verified snapshot of what the CDN serves at
-   https://cdn.thinktalentws48.click/starterkit/colors_and_type.css — the same
-   file both packages' `sync-tokens.mjs` fetch. Phase 4's golden test asserts
-   that resolveBrand(PRESETS.obsidian) reproduces these exact values, so the
-   fixture must never be edited to make a test pass: it is the spec, and if the
-   engine disagrees with it the engine is wrong.
+   THE SOURCE IS THE DEFAULT PRESET'S OWN SHEET, and that is a downgrade worth
+   stating plainly. It used to be src/tokens/__fixtures__/obsidian-2026-08-06.css
+   — a byte-verified snapshot of a hand-tuned sheet that predated this engine, so
+   the ABI was defined by something the engine had to MATCH rather than by
+   something it produced. Deleting obsidian deletes that independent anchor:
+   names.ts now describes what the engine emits, and can no longer disagree with
+   it. What survives is that a token DISAPPEARING is still loud (the two sibling
+   packages' aliases are checked against ROOT_TOKEN_NAMES by property.test.ts
+   assertion 15), and that the colour MATHS keeps its brand-free anchors —
+   contrast.test.ts, deltaE.test.ts's Sharma/Wu/Dalal reference data and its
+   20k-pair culori cross-check, oklch.test.ts, gamut.test.ts.
+
+   ORDER COMES FROM THE PRESET, NOT FROM THIS FILE'S OWN OUTPUT. presets/<id>.css
+   is serialized with `order: Object.keys(preset.provenance)` precisely so this
+   generator reads an order it did not itself produce. Without that, sheet order
+   would be "whatever names.ts said last time", seeded by a file that no longer
+   exists — i.e. alphabetical forever.
 
      node scripts/gen-token-names.mjs            rewrite names.ts
      node scripts/gen-token-names.mjs --check    exit 1 if stale (CI)
    ═══════════════════════════════════════════════════════════════════════════ */
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const FIXTURE_NAME = "obsidian-2026-08-06.css";
-const FIXTURE = join(ROOT, "src", "tokens", "__fixtures__", FIXTURE_NAME);
+/* The default preset's emitted sheet. Kept as one constant rather than derived
+   from PRESET_IDS[0]: this script is plain Node and cannot import the TypeScript
+   catalogue, and a generator that guessed its own input is worse than one that
+   names it. src/presets/index.ts exports DEFAULT_PRESET_ID; schema.test.ts and
+   property.test.ts are what keep the two agreeing. */
+const SOURCE_PRESET = "think";
+const FIXTURE_NAME = `presets/${SOURCE_PRESET}.css`;
+const FIXTURE = join(ROOT, "presets", `${SOURCE_PRESET}.css`);
 const TARGET = join(ROOT, "src", "tokens", "names.ts");
 const LIGHT_SELECTOR = '[data-mui-color-scheme="light"]';
 
@@ -89,9 +106,19 @@ const light = customProps(ruleBody(css, LIGHT_SELECTOR));
    Including it in the brand ABI would make every preset owe a value for a
    field only the publisher can know. */
 const PROVENANCE = ["--tokens-version", "--tokens-brand"];
-const version = (root.get("--tokens-version") ?? '""').replace(/"/g, "");
 
 const rootNames = [...root.keys()].filter((n) => !PROVENANCE.includes(n));
+
+/* COMPUTED, never read back out of the sheet.
+   `--tokens-version` in presets/<id>.css is written BY the emitter FROM this
+   constant, so parsing it back would make the version a fixed point of itself —
+   it could never change, whatever the ABI did. Hashing the name set is what the
+   doc comment always claimed this was, and it makes the version change exactly
+   when the contract does and not on every rebuild. */
+const version = createHash("sha256")
+  .update(rootNames.join("\n"))
+  .digest("hex")
+  .slice(0, 12);
 const lightNames = [...light.keys()].filter((n) => !PROVENANCE.includes(n));
 const channelNames = rootNames.filter((n) => n.endsWith("-channel"));
 
@@ -100,17 +127,16 @@ const channelNames = rootNames.filter((n) => n.endsWith("-channel"));
    brand that writes a hex there invalidates all of them at computed-value time
    with no error anywhere. Pairing them here lets the property test assert it
    for every preset instead of trusting a naming convention. */
-/* The convention is `--x` / `--x-channel`, with two documented departures.
-   `--amber-brand` breaks it: its triple is published as `--amber-channel`, not
-   `--amber-brand-channel` (while its own siblings DO follow the rule, hence
-   `--amber-deep-channel`). Left to the naming convention alone, the pairing
-   invariant would quietly skip `--amber-channel` — a token that is wrong in
-   every preset and asserted by nothing. An explicit table is the only honest
-   way to express "this one is irregular, and here is what it pairs with".
+/* The convention is `--x` / `--x-channel`, and under the semantic ABI there are
+   now NO irregular pairings — the old `--amber-channel` -> `--amber-brand`
+   departure went away with the hue-named families, which is one of the concrete
+   things the rename bought. The table stays (empty) rather than being deleted,
+   because the honest way to express a future irregular pairing is a row here,
+   not a special case in the loop below.
    `--white-channel` / `--black-channel` have no `--white` / `--black` base at
-   all (verified against the sheet); they are fixed overlay constants that do
-   not follow a brand, so no pairing exists to assert. */
-const CHANNEL_BASE_ALIASES = { "--amber-channel": "--amber-brand" };
+   all; they are fixed overlay constants that do not follow a brand, so no
+   pairing exists to assert and they fall through to `orphanChannels`. */
+const CHANNEL_BASE_ALIASES = {};
 
 const paired = [];
 const orphanChannels = [];
@@ -130,14 +156,15 @@ const list = (names) => names.map((n) => `  ${JSON.stringify(n)},`).join("\n");
 const out = `/* GENERATED by scripts/gen-token-names.mjs — do not edit.
  * Run \`pnpm gen:tokens\`; \`pnpm gen:tokens:check\` fails CI when stale.
  *
- * Source of truth: src/tokens/__fixtures__/${FIXTURE_NAME}, a byte-verified
- * snapshot of the published sheet both design-system packages consume. */
+ * Source of truth: ${FIXTURE_NAME} — the default preset's emitted sheet, whose
+ * order comes from sheetOrder() in src/presets/base.ts. */
 
-/** The fixture these names were derived from. */
+/** The sheet these names were derived from. */
 export const TOKENS_FIXTURE = ${JSON.stringify(FIXTURE_NAME)};
 
-/** \`--tokens-version\` carried by that fixture. Content-hashed over the token
- *  NAME set, so it changes when the contract changes — not on every rebuild. */
+/** Content hash over the token NAME set, so it changes when the contract
+ *  changes — not on every rebuild. Emitted into every sheet as
+ *  \`--tokens-version\`, and computed here rather than read back from one. */
 export const TOKENS_VERSION = ${JSON.stringify(version)};
 
 /** Every custom property a brand must define on \`:root\`. ${rootNames.length} names. */

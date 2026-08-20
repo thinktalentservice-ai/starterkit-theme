@@ -4,7 +4,7 @@ import { createStarterkitTheme, PALETTE_INTENTIONS, REQUIRED_INTENTION_KEYS } fr
 /* Regression test for the exact bug `PALETTE_INTENTIONS`'s doc comment warns
  * about: MUI's `augmentColor()` runs over every palette intention and derives
  * any key a theme didn't supply explicitly. Derivation parses the colour —
- * and `var(--mint)` is unparseable — so a missing key throws at
+ * and `var(--primary)` is unparseable — so a missing key throws at
  * `createTheme()` time, i.e. at build/import time, not later when a component
  * happens to render. */
 describe("createStarterkitTheme", () => {
@@ -45,18 +45,23 @@ describe("createStarterkitTheme", () => {
     expect(dark!.palette.dividerChannel).toBeUndefined();
   });
 
-  it("primary/secondary/warning token names match the host sheet exactly, both schemes", () => {
+  it("primary/secondary/warning/error/info token names match the new semantic ABI, both schemes", () => {
     // Spot-checks, not full byte parity: the migration's whole premise is
-    // "same var() names, same values" — a couple of concrete assertions catch
+    // "same role, new var() names" — a couple of concrete assertions catch
     // a copy-paste token-name typo that "does not throw" cannot, since a wrong
     // but still-parseable-looking var() name never throws at creation time.
     for (const scheme of ["dark", "light"] as const) {
       const palette = theme.colorSchemes[scheme]!.palette;
-      expect(palette.primary.main, scheme).toBe("var(--mint)");
-      expect(palette.primary.contrastText, scheme).toBe("#ffffff");
-      expect(palette.secondary.main, scheme).toBe("var(--electric)");
-      expect(palette.warning.main, scheme).toBe("var(--amber-brand)");
-      expect(palette.error.main, scheme).toBe("var(--rose)");
+      expect(palette.primary.main, scheme).toBe("var(--primary)");
+      expect(palette.primary.contrastText, scheme).toBe("var(--primary-on-solid)");
+      expect(palette.secondary.main, scheme).toBe("var(--secondary)");
+      expect(palette.warning.main, scheme).toBe("var(--warning)");
+      // `error` is the one PALETTE_INTENTIONS key whose family name diverges
+      // from the MUI key: the ABI's `danger` family backs MUI's `error`.
+      expect(palette.error.main, scheme).toBe("var(--danger)");
+      // `info` is the other diverging pair: the ABI's `accent` family backs
+      // MUI's `info`, replacing the now-deleted sky-family token.
+      expect(palette.info.main, scheme).toBe("var(--accent)");
       expect(palette.background.default, scheme).toBe("var(--background)");
       expect(palette.text.primary, scheme).toBe("var(--fg1)");
     }
@@ -72,7 +77,7 @@ describe("createStarterkitTheme", () => {
     const filled = (alertRoot as (ctx: { ownerState: { variant: string; color: string } }) => Record<string, unknown>)({
       ownerState: { variant: "filled", color: "success" },
     });
-    expect(filled.backgroundColor).toBe("var(--mint)");
-    expect(filled.color).toBe("var(--on-mint)");
+    expect(filled.backgroundColor).toBe("var(--success)");
+    expect(filled.color).toBe("var(--success-on-solid)");
   });
 });

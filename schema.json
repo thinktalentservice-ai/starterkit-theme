@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://devopsnext.dev/starterkit-theme/schema.json",
   "title": "Brand document",
-  "description": "The tenant-facing shape this package's brand resolver consumes: an opaque tenant id, a preset choice, optional colour/shape seeds, and an optional raw token override escape hatch. LIMITATION: `preset.enum` below is a manually-kept-in-sync copy of PRESET_IDS from src/presets/index.ts — a static JSON file cannot import a TypeScript const, so a new preset added there does not automatically appear here (same category of limitation as the CHANNEL_BASE_ALIASES table in scripts/gen-token-names.mjs). LIMITATION: `overrides` keys are checked structurally (do they look like a CSS custom property name?) only — this schema cannot verify a key is an actual member of ROOT_TOKEN_NAMES, because that also requires the live TS array a static schema can't import; an unknown-but-well-formed token name passes here and is silently ignored by the CSS engine that consumes it.",
+  "description": "The tenant-facing shape this package's brand resolver consumes: an opaque tenant id, a preset choice, optional colour/shape seeds, and an optional raw token override escape hatch. LIMITATION: `preset.enum` below is a manually-kept-in-sync copy of PRESET_IDS (\"think\", \"elemetrik\") from src/presets/index.ts — a static JSON file cannot import a TypeScript const, so a new preset added there does not automatically appear here (same category of limitation as the CHANNEL_BASE_ALIASES table in scripts/gen-token-names.mjs). LIMITATION: `overrides` keys are checked structurally (do they look like a CSS custom property name?) only — this schema cannot verify a key is an actual member of ROOT_TOKEN_NAMES, because that also requires the live TS array a static schema can't import; an unknown-but-well-formed token name passes here and is silently ignored by the CSS engine that consumes it.",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "preset"],
@@ -14,8 +14,8 @@
     },
     "preset": {
       "type": "string",
-      "enum": ["obsidian", "meridian", "solstice", "beacon", "graphite", "atlas"],
-      "$comment": "Must be kept in sync with PRESET_IDS in src/presets/index.ts by hand. Adding or removing a preset there requires the same edit here."
+      "enum": ["think", "elemetrik"],
+      "$comment": "Must be kept in sync with PRESET_IDS (\"think\", \"elemetrik\") in src/presets/index.ts by hand. Adding or removing a preset there requires the same edit here."
     },
     "seeds": {
       "type": "object",

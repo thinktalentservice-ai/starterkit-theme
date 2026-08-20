@@ -47,10 +47,10 @@ describe("channel triples", () => {
   });
 
   it("matches the triples the shipped sheet publishes", () => {
-    // Straight from src/tokens/__fixtures__ — --mint / --mint-channel and
-    // --mint-dark / --mint-dark-channel in the light scheme.
-    expect(hexToTriple("#6B7D20")).toBe("107 125 32");
-    expect(hexToTriple("#56631A")).toBe("86 99 26");
+    // Straight from presets/think.css — think's light-scheme --primary and
+    // --primary-text.
+    expect(hexToTriple("#006CB2")).toBe("0 108 178");
+    expect(hexToTriple("#004D83")).toBe("0 77 131");
   });
 });
 
@@ -93,7 +93,7 @@ describe("round-trip over the real token sheet", () => {
      survive hex -> OKLCH -> hex unchanged. A matrix typo or a wrong transfer
      function moves at least one byte on at least one of ~150 real colours. */
   const css = readFileSync(
-    fileURLToPath(new URL("../tokens/__fixtures__/obsidian-2026-08-06.css", import.meta.url)),
+    fileURLToPath(new URL("../../presets/think.css", import.meta.url)),
     "utf8",
   );
   const hexes = [
@@ -105,8 +105,14 @@ describe("round-trip over the real token sheet", () => {
   ];
 
   it("found a realistic number of colours to test", () => {
-    // Guards against a green run that asserted nothing because the regex broke.
-    expect(hexes.length).toBeGreaterThan(80);
+    /* Guards against a green run that asserted nothing because the regex broke.
+       Lowered from 80 to 60 when the catalogue lost the 12 categorical avatar
+       colours and four whole hue families it no longer brands — think.css
+       carries 71 distinct hexes against the old sheet's ~150. This is a
+       "the file is not empty" floor, not a coverage target, so it is set below
+       the real number rather than at it; setting it AT 71 would fail on any
+       deliberate token change and teach the next reader to edit it reflexively. */
+    expect(hexes.length).toBeGreaterThan(60);
   });
 
   it("survives hex -> OKLCH -> hex exactly", () => {
