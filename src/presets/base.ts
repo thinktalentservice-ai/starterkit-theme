@@ -266,22 +266,33 @@ function roleRules(f: RoleName): Record<string, TokenRule> {
  * reads 6.38:1 with ink, so `fitContrast` returns it untouched and this is a
  * no-op there BY CONSTRUCTION, not by luck.
  *
- * WHAT THE FLOOR NO LONGER BUYS, stated plainly rather than left in an old
- * comment. It was set when this gradient ended on `--accent-solid`, where
- * lifting the start was genuinely enough to make ONE ink span the sweep. The
- * gradient now ends on `--primary-solid` itself, and no floor on the START can
- * rescue an END that fails: elemetrik's unlifted `#6832FF` reads 3.18:1 with
- * dark ink and 3.48:1 with white, so `--gradient-avatar` carries a sub-AA
- * trough on that brand no matter what this number is. That shortfall is
- * measured, listed in `property.test.ts` and owned — it is not a floor quietly
- * failing to do its job.
+ * THE FLOOR NOW COSTS CONTRAST INSTEAD OF BUYING IT, and the reversal is worth
+ * spelling out because the obvious reading is backwards. 5.5 was set when this
+ * gradient ended on `--accent-solid` — a lighter hue, so lifting the start
+ * narrowed the blend's lightness range and one dark ink spanned it. The gradient
+ * now ends on `--primary-solid`, BELOW the lifted start, so the same lift WIDENS
+ * the range, and a wide range is exactly what no single ink can cover:
  *
- * What 5.5 still buys is real and is why it stays: the start stop keeps the
- * exact value it shipped with (think `#0099FF`, elemetrik `#8576FF`), so this
- * change moves no token that was not asked to move, and elemetrik keeps a
- * visible light-to-dark sweep rather than a flat block. On think it IS a flat
- * block, for the same reason it is a no-op there — see `AVATAR_3_FROM` for the
- * variant that does not have that property.
+ *   elemetrik  --primary-solid  #6832FF   dark ink 3.18   white 6.02
+ *              lifted start     #8576FF   dark ink 5.50   white 3.48
+ *
+ * The two stops want OPPOSITE inks. Whichever the `ink` rule picks, it scores
+ * on the worse one, so the best available is white at 3.48:1 — and the trough
+ * sits at the START, the stop this lift produced. The end stop is not the
+ * problem and moving `--primary-solid` would not fix it.
+ *
+ * REMOVING THE LIFT WOULD FIX THE CONTRAST AND DESTROY THE TOKEN: both stops
+ * become `#6832FF`, white clears 6.02:1, and every brand renders a flat block —
+ * which is `--gradient-avatar-2` without its hover step, i.e. a worse version of
+ * a token that already exists. So the lift stays, at the value it shipped with
+ * so the start stop moves no token that was not asked to move (think `#0099FF`,
+ * elemetrik `#8576FF`), and the shortfall is recorded in `property.test.ts` with
+ * the stop and position it occurs at rather than described in prose that can
+ * drift away from the measurement.
+ *
+ * On think both stops are the same colour, so there is no ink conflict and no
+ * sweep either — the block is flat and legible at 6.38:1. That is the trade this
+ * variant makes; `--gradient-avatar-3` makes the opposite one.
  */
 const AVATAR_FROM: ColorRef = {
   k: "lift",
@@ -305,11 +316,13 @@ const AVATAR_FROM: ColorRef = {
  * rather than a smudge: think renders `#80C0FF -> #0099FF`, elemetrik
  * `#8678FF -> #6832FF`.
  *
- * It makes NO contrast claim, and inherits the same sub-AA trough
- * `--gradient-avatar` has, from the same cause — the END stop. Do not read the
- * larger start-stop lift as buying legibility: elemetrik measures 3.42:1 here
- * against 3.48:1 there, i.e. very slightly WORSE, because a brighter start does
- * nothing for a trough that sits at the far end.
+ * It makes NO contrast claim, and on a mid-dark seed it COSTS contrast for the
+ * same reason `AVATAR_FROM` does: a wider lightness range means the two stops
+ * want opposite inks. elemetrik measures 3.42:1 here against `AVATAR_FROM`'s
+ * 3.48:1 — very slightly worse, and worse in the direction the extra brightness
+ * predicts, because the trough is at the START stop and this one is brighter.
+ * The guaranteed sweep and the guaranteed shortfall are the same property seen
+ * from two sides; a variant cannot have one without the other.
  */
 const AVATAR_3_FROM: ColorRef = { k: "lighten", ref: solidRef("primary"), dl: 0.12 };
 
@@ -415,17 +428,27 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
        Every one of them ends on `--primary-solid`, so the avatar reads as the
        brand's primary rather than as a primary/accent blend.
 
-         --gradient-avatar    contrast-floored start -> primary.
-                              Legible on a dark-seeded brand, FLAT on a brand
-                              whose seed already clears the floor (think).
-         --gradient-avatar-2  primary -> primary hover.
-                              The only one legible on every brand BY
-                              CONSTRUCTION, and the only one whose sweep is a
-                              sheen rather than a step. Byte-identical to
-                              `--gradient-primary` — see its own note.
-         --gradient-avatar-3  fixed-distance lightened start -> primary.
-                              A real step on every brand, at the cost of the
-                              same sub-AA trough --gradient-avatar has.
+       ONE CONSTRAINT GOVERNS ALL THREE: a CSS gradient carries one label
+       colour, `ink` scores on its worst point, and moving a stop in L moves it
+       toward one candidate ink and away from the other. So a sweep's lightness
+       RANGE and its legibility are in direct opposition — a visible step on a
+       mid-dark seed is bought with a sub-AA trough, every time. The three are
+       the three points on that trade worth naming:
+
+         --gradient-avatar    contrast-floored start -> primary. Steps on a
+                              dark-seeded brand and carries the trough; FLAT and
+                              legible on a brand whose seed already clears the
+                              floor (think).
+         --gradient-avatar-2  primary -> primary hover. The narrowest possible
+                              range — an 8% ink mix — so one ink always spans it.
+                              Exactly as legible as a primary button, which is
+                              not the same claim as "AA on every brand": on a
+                              seed whose own `--primary-on-solid` misses 4.5:1
+                              this misses it too, and identically. Byte-identical
+                              to `--gradient-primary` — see its own note.
+         --gradient-avatar-3  fixed-distance lightened start -> primary. The
+                              widest range, so it steps on EVERY brand and
+                              carries the trough on every mid-dark one.
 
        The start stops are their own tokens because they are the only fills in
        the catalogue that are not their family's seed, and a gradient silently
@@ -451,7 +474,14 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
        Its ink is `--primary-on-solid` by construction for the same reason —
        same backdrops, same candidates — and `property.test.ts` asserts the
        equality rather than assuming it, because a divergence would mean the
-       family ink's two-point `over` is under-sampling its own hover blend. */
+       family ink's two-point `over` is under-sampling its own hover blend.
+
+       WHAT THAT EQUALITY DOES AND DOES NOT PROMISE: it makes this sweep exactly
+       as legible as a solid primary button, no more. A seed whose own
+       `--primary-on-solid` misses 4.5:1 — `#0070FF` resolves white at 4.41 —
+       gives this token the same 4.41, and that is a defect in the family ink
+       rather than in this gradient. "Legible by construction" is a claim about
+       INHERITING the button's answer, not about the answer always passing. */
     "--gradient-avatar-2": literal(
       "linear-gradient(135deg, var(--primary-solid), var(--primary-solid-hover))",
     ),

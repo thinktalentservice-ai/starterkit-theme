@@ -30,6 +30,7 @@ import { PRESETS } from "../presets/index";
 import { CHANNEL_PAIRS, ROOT_TOKEN_NAMES } from "../tokens/names";
 import { HOVER_MIX, ROLE_NAMES, type RoleName } from "./ladder";
 import { measureAcknowledged, resolveBrand } from "./resolve";
+import type { PresetSpec } from "./spec";
 
 const SCHEMES = ["dark", "light"] as const;
 
@@ -39,52 +40,81 @@ const PRESET_ENTRIES = Object.entries(PRESETS).filter(
 
 const RESOLVED = PRESET_ENTRIES.map(([id, preset]) => ({ id, preset, brand: resolveBrand(preset) }));
 
-/** The three avatar sweeps, as `[gradient, startToken, endToken, inkToken]`.
- *
- *  The START-STOP TOKEN, not the ref it derives from: `--gradient-avatar-from`
- *  and `--gradient-avatar-3-from` are `--primary-solid` transformed two
- *  different ways, and measuring the untransformed seed would test gradients
- *  the sheet does not contain. */
-const AVATAR_SWEEPS = [
-  ["--gradient-avatar", "--gradient-avatar-from", "--primary-solid", "--gradient-avatar-ink"],
-  ["--gradient-avatar-2", "--primary-solid", "--primary-solid-hover", "--gradient-avatar-2-ink"],
-  ["--gradient-avatar-3", "--gradient-avatar-3-from", "--primary-solid", "--gradient-avatar-3-ink"],
-] as const;
+/** The avatar sweeps. Their STOPS ARE NOT LISTED HERE, deliberately — see
+ *  `stopsOf`. Only the gradient names are, because the set of avatar variants is
+ *  a design decision and adding one without a row here should be a visible
+ *  omission rather than a silent gap. */
+const AVATAR_GRADIENTS = ["--gradient-avatar", "--gradient-avatar-2", "--gradient-avatar-3"] as const;
 
 /**
- * MEASURED SUB-AA TROUGHS, by `preset|scheme|gradient`, with the ratio read at
- * the time of writing.
+ * Read a gradient's stop TOKENS out of the value the preset actually emits.
  *
- * ROOT CAUSE, one for all four entries: `--gradient-avatar` and
- * `--gradient-avatar-3` both END on `--primary-solid`, and elemetrik's primary
- * is a dark violet (`#6832FF`) that reads 3.18:1 against the dark fill ink and
- * 3.48:1 against white. No ink clears 4.5:1 anywhere on a blend containing it.
- * The only fix is to move `--primary-solid`, which is the fill under every
- * primary button and is deliberately never darkened for contrast — so this is
- * acknowledged rather than searched.
- *
- * OWNER: whoever picks which avatar sweep the app renders.
- * `--gradient-avatar-2` has no entry here and needs none — it clears AA on both
- * brands by construction, and it is the one to reach for if the avatar is going
- * to carry initials. These two are for the case where it carries a photo, a
- * glyph, or nothing.
- *
- * Both schemes are listed even though the four ratios come in identical pairs.
- * Solid fills are scheme-invariant BY DESIGN, so the pairs matching is a
- * property worth failing on if it ever stops holding, not a redundancy to
- * collapse.
+ * A hand-written `[gradient, start, end]` table measures whatever it was last
+ * told the stops were. Change a stop in `base.ts` and the table keeps testing
+ * the old blend, in green — the failure mode where a test proves a claim about
+ * code that no longer exists. Parsing the emitted literal binds the measurement
+ * to the sheet, so the only way to measure the wrong blend is to emit the wrong
+ * blend.
  */
-const AVATAR_SHORTFALLS: Record<string, number> = {
-  "elemetrik|dark|--gradient-avatar": 3.48,
-  "elemetrik|light|--gradient-avatar": 3.48,
-  "elemetrik|dark|--gradient-avatar-3": 3.42,
-  "elemetrik|light|--gradient-avatar-3": 3.42,
+function stopsOf(map: Map<string, string>, gradient: string): string[] {
+  const value = map.get(gradient);
+  if (value === undefined) throw new Error(`${gradient} is not emitted`);
+  return [...value.matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]!);
+}
+
+/**
+ * MEASURED SUB-AA TROUGHS, by `preset|scheme|gradient`, as
+ * `[ratio, stopHex, t]` — the ratio, the colour it occurs at, and where in the
+ * blend. All three are checked.
+ *
+ * THE POSITION IS RECORDED BECAUSE A RATIO ALONE LETS THE CAUSE ROT. The first
+ * version of this ledger stored only the number, and every comment around it
+ * attributed the shortfall to the END stop. It is at the START. The numbers were
+ * right and the explanation was backwards, and nothing in a ratio-only ledger
+ * could ever have said so — it would have stayed green through the wrong
+ * diagnosis being copied into the engine, the host gate and the palette page,
+ * which is exactly what happened.
+ *
+ * ROOT CAUSE, one for all four entries and NOT the end stop: `ink` picks one
+ * colour and scores it on the blend's worst point, and moving a stop in L moves
+ * it toward one candidate ink and away from the other. Both of these sweeps put
+ * a lightened start above elemetrik's `#6832FF`, so the two ends want opposite
+ * inks:
+ *
+ *     #6832FF   dark ink 3.18   white 6.02      <- end stop, wants white
+ *     #8576FF   dark ink 5.50   white 3.48      <- --gradient-avatar start
+ *     #8678FF   dark ink 5.60   white 3.42      <- --gradient-avatar-3 start
+ *
+ * White wins on the worst point and lands at the START. Moving `--primary-solid`
+ * would not help; narrowing the range would, and narrowing it to nothing is
+ * `--gradient-avatar-2`.
+ *
+ * OWNER: whoever picks which avatar sweep the app renders. Reach for
+ * `--gradient-avatar-2` if the avatar carries initials; these two are for a
+ * photo, a glyph, or nothing.
+ *
+ * Both schemes are listed even though the ratios come in identical pairs. Solid
+ * fills are scheme-invariant BY DESIGN, so the pairs matching is a property
+ * worth failing on if it ever stops holding, not a redundancy to collapse.
+ */
+const AVATAR_SHORTFALLS: Record<string, [number, string, number]> = {
+  "elemetrik|dark|--gradient-avatar": [3.48, "#8576ff", 0],
+  "elemetrik|light|--gradient-avatar": [3.48, "#8576ff", 0],
+  "elemetrik|dark|--gradient-avatar-3": [3.42, "#8678ff", 0],
+  "elemetrik|light|--gradient-avatar-3": [3.42, "#8678ff", 0],
 };
 
 /** How far a recorded ratio may move before it must be re-read and re-decided.
  *  Wide enough to absorb an 8-bit rounding step, far too narrow to absorb a
  *  seed change. */
 const AVATAR_DRIFT = 0.05;
+
+/** The same preset with ONE family reseeded — the fuzz suite's `withSeed`,
+ *  narrowed to `primary`, so a probe changes exactly the input under test and
+ *  leaves the neutral layer (and therefore every backdrop) alone. */
+function withPrimarySeed(preset: PresetSpec, seed: string): PresetSpec {
+  return { ...preset, families: { ...preset.families, primary: { ...preset.families.primary!, seed } } };
+}
 
 /** Every (preset, scheme, family) triple, which is what most of these iterate. */
 function* cells() {
@@ -253,40 +283,67 @@ describe("property — invariants across every preset, both schemes", () => {
       const c = (x: number, y: number) => Math.round(x + (y - x) * t).toString(16).padStart(2, "0");
       return `#${c(ar!, br!)}${c(ag!, bg!)}${c(ab!, bb!)}`;
     };
+    /* GUARD THE LEDGER'S OWN SHAPE FIRST. `Math.abs(worst - NaN) > DRIFT` is
+       false, so a `NaN` written into an entry disables its own check and reads
+       as a pass — the same exploit the host ledger already guards against in
+       check-legibility.mjs. A ledger whose guards can be switched off by a value
+       written into the ledger is not a ledger. */
+    for (const [key, entry] of Object.entries(AVATAR_SHORTFALLS)) {
+      const [ratio, stop, t] = entry ?? [];
+      if (!Number.isFinite(ratio) || !/^#[0-9a-f]{6}$/.test(String(stop)) || !Number.isFinite(t) || t! < 0 || t! > 1) {
+        bad.push(`ledger: "${key}" must be [finite ratio, "#rrggbb" stop, t in 0..1]`);
+      }
+    }
+
     const unseen = new Set(Object.keys(AVATAR_SHORTFALLS));
     for (const { id, brand } of RESOLVED) {
       for (const scheme of SCHEMES) {
         const map = scheme === "dark" ? brand.dark : brand.light;
-        for (const [gradient, fromToken, toToken, inkToken] of AVATAR_SWEEPS) {
-          const ink = map.get(inkToken)!;
-          /* The START-STOP TOKEN, never the raw seed it derives from. They are
-             the same colour for think and deliberately differ for elemetrik, and
-             measuring the underived stop would test a gradient the page never
-             renders. */
-          const from = map.get(fromToken)!;
-          const to = map.get(toToken)!;
+        for (const gradient of AVATAR_GRADIENTS) {
+          /* Stops read off the EMITTED value, not a table — see `stopsOf`. */
+          const stops = stopsOf(map, gradient);
+          if (stops.length !== 2) {
+            bad.push(`${id}|${scheme}|${gradient}: expected 2 var() stops, emitted ${stops.length}`);
+            continue;
+          }
+          const ink = map.get(`${gradient}-ink`)!;
+          const from = map.get(stops[0]!)!;
+          const to = map.get(stops[1]!)!;
           let worst = Infinity;
           let at = 0;
+          let atHex = from;
           for (let i = 0; i <= 20; i += 1) {
-            const r = contrastRatio(ink, lerp(from, to, i / 20));
+            const hex = lerp(from, to, i / 20);
+            const r = contrastRatio(ink, hex);
             if (r < worst) {
               worst = r;
               at = i / 20;
+              atHex = hex;
             }
           }
           const key = `${id}|${scheme}|${gradient}`;
           const ack = AVATAR_SHORTFALLS[key];
           if (worst >= 4.5) {
             if (ack !== undefined) {
-              bad.push(`${key}: now measures ${worst.toFixed(2)} and PASSES — delete the stale shortfall entry (${ack})`);
+              bad.push(`${key}: now measures ${worst.toFixed(2)} and PASSES — delete the stale shortfall entry`);
             }
             continue;
           }
           unseen.delete(key);
           if (ack === undefined) {
-            bad.push(`${key}: ${worst.toFixed(2)} at t=${at.toFixed(2)} — unrecorded sub-AA trough`);
-          } else if (Math.abs(worst - ack) > AVATAR_DRIFT) {
-            bad.push(`${key}: ${worst.toFixed(2)} drifted from recorded ${ack}`);
+            bad.push(`${key}: ${worst.toFixed(2)} at t=${at.toFixed(2)} on ${atHex} — unrecorded sub-AA trough`);
+            continue;
+          }
+          const [ratio, stop, t] = ack;
+          if (Math.abs(worst - ratio) > AVATAR_DRIFT) {
+            bad.push(`${key}: ${worst.toFixed(2)} drifted from recorded ${ratio}`);
+          }
+          /* The POSITION is asserted as hard as the ratio. A trough that moved
+             from one end of the blend to the other while keeping its number is a
+             different defect wearing the old one's entry, and it is precisely
+             the confusion this ledger was rewritten to prevent. */
+          if (atHex !== stop || Math.abs(at - t) > 0.001) {
+            bad.push(`${key}: trough moved to ${atHex} at t=${at.toFixed(2)}, recorded ${stop} at t=${t}`);
           }
         }
       }
@@ -316,7 +373,7 @@ describe("property — invariants across every preset, both schemes", () => {
     expect(bad).toEqual([]);
   });
 
-  it("9c. --gradient-avatar-3's start stop moves on EVERY brand, which is the only reason it exists", () => {
+  it("9c. --gradient-avatar-3's start stop moves on EVERY seed, including the white one that clamping used to no-op", () => {
     /* The defect this variant was added to avoid is silent: a contrast-floored
        start stop no-ops on a brand whose seed already passes, so
        `--gradient-avatar` renders start === end — a flat fill emitted as a
@@ -341,6 +398,24 @@ describe("property — invariants across every preset, both schemes", () => {
        or the seed moved, and the comment on AVATAR_FROM is out of date. */
     const think = RESOLVED.find((r) => r.id === "think")!;
     expect(think.brand.dark.get("--gradient-avatar-from")).toBe(think.brand.dark.get("--primary-solid"));
+
+    /* THE TWO PRESETS CANNOT PROVE "every seed" AND MUST NOT BE READ AS DOING
+       SO. Both sit mid-range, so both take the lightening branch; the branch
+       that exists for a seed near the top of the L ray is unreachable from the
+       shipped catalogue. `validateBrandDoc` accepts any `#rrggbb`, so a white
+       primary is a legal tenant seed — and `Math.min(1, l + dl)` returned it
+       unchanged, reintroducing the exact no-op the whole ref exists to prevent,
+       invisibly, at the one end of the range the fixtures never reach. */
+    for (const seed of ["#ffffff", "#fdfdfd", "#000000"]) {
+      const probe = resolveBrand(withPrimarySeed(RESOLVED[0]!.preset, seed));
+      for (const scheme of SCHEMES) {
+        const map = scheme === "dark" ? probe.dark : probe.light;
+        expect(
+          map.get("--gradient-avatar-3-from"),
+          `primary ${seed} (${scheme}): avatar-3 start stop must differ from --primary-solid`,
+        ).not.toBe(map.get("--primary-solid"));
+      }
+    }
   });
 
   it("10. every channel token is the RGB triple of its base, in both schemes, every preset", () => {

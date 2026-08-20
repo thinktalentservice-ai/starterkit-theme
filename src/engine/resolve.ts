@@ -151,10 +151,21 @@ function resolveRef(ref: ColorRef, scheme: SchemeName, ctx: Context): string {
         throw new Error(`lighten: dl must be in (0, 1), got ${ref.dl}`);
       }
       const base = hexToOklch(normalizeHex(resolveRef(ref.ref, scheme, ctx)));
-      /* Clamped at 1 so a near-white seed saturates instead of wrapping; the
-         chroma clamp then pulls the result back into sRGB, which is what stops
-         a lightened blue from serialising as a colour nobody chose. */
-      return oklchToHex(clampChroma({ ...base, l: Math.min(1, base.l + ref.dl) }));
+      /* A NEAR-WHITE SEED IS WHY THIS IS NOT `Math.min(1, l + dl)`. Clamping at
+         the top of the ray returns the input unchanged for any seed within `dl`
+         of white — `#ffffff` in, `#ffffff` out — which is precisely the silent
+         no-op this ref exists to make impossible, reintroduced at the one end of
+         the range nobody tests. `validateBrandDoc` accepts any `#rrggbb`, so a
+         white primary is a legal tenant seed, not a hypothetical.
+         Stepping the other way is not a fallback, it is the same request read
+         correctly: the caller asked for a stop `dl` away from this colour, and
+         when there is no room above there is always room below. The result
+         differs from the input in L for every seed, which is the invariant
+         `property.test.ts` 9c asserts. */
+      const l = base.l + ref.dl <= 1 ? base.l + ref.dl : Math.max(0, base.l - ref.dl);
+      /* The chroma clamp is what stops a lightened blue from serialising as a
+         colour nobody chose — same guard `emittableRay` applies per step. */
+      return oklchToHex(clampChroma({ ...base, l }));
     }
   }
 }

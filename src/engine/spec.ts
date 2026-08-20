@@ -229,10 +229,17 @@ export type ColorRef =
    *  error anywhere. Measured on the shipped preset, not hypothesised.
    *
    *  So this rule takes a distance, not a target: every brand moves, by the same
-   *  perceptual amount, and none of them can no-op. It makes no contrast claim
-   *  whatsoever — whether the resulting blend is legible is the `ink` rule's
-   *  question, and for a blend ending on an unlifted fill the honest answer may
-   *  be "it is not", which is recorded rather than hidden.
+   *  perceptual amount, and none of them can no-op — see the resolver for why
+   *  that holds at the white end of the range too, where a naive clamp would
+   *  quietly reintroduce the no-op.
+   *
+   *  IT MAKES NO CONTRAST CLAIM, and on a mid-dark seed it actively COSTS
+   *  contrast. Moving a stop in L moves it toward one ink and away from the
+   *  other, so widening a blend's lightness range is what makes a single ink
+   *  unable to span it: elemetrik's `#6832FF` reads 6.02:1 against white, and
+   *  the stop 0.12 above it reads 3.42:1. Whether the resulting blend is legible
+   *  is the `ink` rule's question, and for a wide blend the honest answer may be
+   *  "no ink spans it", which is recorded rather than hidden.
    *
    *  `clampChroma` rather than a raw L bump: pushing L on a saturated hue walks
    *  straight out of sRGB, and an out-of-gamut OKLCH triple serialises to a hex
