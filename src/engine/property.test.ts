@@ -247,10 +247,21 @@ describe("property — invariants across every preset, both schemes", () => {
     for (const other of rest) {
       expect(shape(other.preset), `${other.id} vs ${first!.id}`).toEqual(shape(first!.preset));
     }
-    /* Two per family, both schemes, all searching. */
-    expect(first!.preset.duties).toHaveLength(ROLE_NAMES.length * 2);
+    /* FOUR per family, not two, and NONE of them `scheme: "both"`.
+       A duty names one backdrop, and which of --background / --surface / --card
+       is the WORST one flips with the scheme: in dark the brand token is
+       lighter than all three so --card (the lightest) is worst; in light it is
+       darker than all three so --background (the darkest) is worst. "both"
+       cannot express that, and declaring both schemes against --surface checked
+       the middle backdrop in dark and the best one in light — which shipped an
+       outline border at 2.96:1 while its duty reported PASS at 3.17:1.
+       So: mark + text, each per scheme, all searching. */
+    expect(first!.preset.duties).toHaveLength(ROLE_NAMES.length * 4);
     expect(first!.preset.duties.every((d) => d.enforce === "search")).toBe(true);
-    expect(first!.preset.duties.every((d) => d.scheme === "both")).toBe(true);
+    expect(first!.preset.duties.every((d) => d.scheme !== "both")).toBe(true);
+    for (const d of first!.preset.duties) {
+      expect(d.against, `${d.token}|${d.scheme}`).toBe(d.scheme === "dark" ? "--card" : "--background");
+    }
   });
 
   it("12. both presets emit the IDENTICAL token name set, in both schemes", () => {

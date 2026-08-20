@@ -492,27 +492,78 @@ const SHARED_CHANNEL_OF: Record<string, string> = {
  * engine is allowed to do the job it exists for — and `acknowledged` is empty
  * as a result, rather than carrying four measured defects forward.
  *
- * Measured against `--surface` rather than `--background` because
- * `background.paper` is what a Card renders, and it is the stricter of the two.
+ * The backdrop was `--surface` in both schemes, on the reasoning that
+ * `background.paper` is what a Card renders and is "the stricter of the two".
+ * That was measured wrong in both directions — see the block below.
  */
+const WORST_BACKDROP = { dark: "--card", light: "--background" } as const;
+
+/* THE BACKDROP IS PER-SCHEME, AND CHOOSING ONE FOR BOTH IS THE BUG THIS FIXES.
+ *
+ * A duty names ONE backdrop, but a button, a chip and a border land on three:
+ * `--background` (the page), `--surface` (a panel) and `--card`. The worst of
+ * the three is what a user actually sees, and which one is worst is decided by
+ * the neutral ramp, not by the brand:
+ *
+ *   dark   background #0d0f1a < surface #10121c < card #12141f
+ *          the brand token is LIGHTER than all three, so the LIGHTEST backdrop
+ *          -- `--card` -- is the worst.
+ *   light  background #f6f7fb < surface #ffffff = card #ffffff
+ *          the brand token is DARKER than all three, so the DARKEST backdrop
+ *          -- `--background` -- is the worst.
+ *
+ * Measured across 24 token x brand x scheme combinations, uniformly, with no
+ * exception. Declaring both schemes against `--surface` therefore checks the
+ * MIDDLE backdrop in dark and the BEST one in light, and the gap is not
+ * theoretical: it shipped `--accent` at 3.17:1 on `--surface` and 2.96:1 on the
+ * page for one of the two brands -- a duty reporting PASS on an outline button
+ * that misses WCAG 1.4.11 by 0.04, in both packages that draw one. It was
+ * caught by the host's legibility table, which has always measured the worst of
+ * the three, and never by the duty that exists to prevent exactly this.
+ *
+ * So: four duties per family, not two. `scheme: "both"` cannot express it,
+ * because "both" means one backdrop for both schemes and there is no single
+ * correct one. Nothing else moves -- every other token already cleared its
+ * worst backdrop, which is why this reads as one nudged hex rather than a
+ * restyle. */
 const dutiesFor = (f: RoleName): Duty[] => [
   {
     token: `--${f}`,
-    against: "--surface",
+    against: WORST_BACKDROP.dark,
     min: 3.0,
-    scheme: "both",
-    because: `WCAG 1.4.11 — --${f} is the non-text mark: border, icon, indicator, palette.${f}.main`,
+    scheme: "dark",
+    because: `WCAG 1.4.11 — --${f} is the non-text mark: border, icon, indicator, palette.${f}.main. In dark the worst backdrop is --card.`,
+    enforce: "search",
+  },
+  {
+    token: `--${f}`,
+    against: WORST_BACKDROP.light,
+    min: 3.0,
+    scheme: "light",
+    because: `WCAG 1.4.11 — --${f} is the non-text mark: border, icon, indicator, palette.${f}.main. In light the worst backdrop is --background.`,
     enforce: "search",
   },
   {
     token: `--${f}-text`,
-    against: "--surface",
+    against: WORST_BACKDROP.dark,
     min: 4.5,
-    scheme: "both",
-    because: `WCAG 1.4.3 — --${f}-text is the family AS body text on background.paper`,
+    scheme: "dark",
+    because: `WCAG 1.4.3 — --${f}-text is the family AS body text. In dark the worst backdrop is --card.`,
+    enforce: "search",
+  },
+  {
+    token: `--${f}-text`,
+    against: WORST_BACKDROP.light,
+    min: 4.5,
+    scheme: "light",
+    because: `WCAG 1.4.3 — --${f}-text is the family AS body text. In light the worst backdrop is --background.`,
     enforce: "search",
   },
 ];
+
+/* Named rather than inlined four times, so the claim above is stated once and a
+   change to the neutral ramp has one place to be reflected. */
+
 
 /* ── Provenance ───────────────────────────────────────────────────────────── */
 
