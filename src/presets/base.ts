@@ -504,6 +504,45 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
       "linear-gradient(90deg, var(--primary-solid), var(--accent-solid))",
     ),
 
+    /* TWO CROSS-FAMILY BLENDS, and the reason they get their own name rather
+       than reusing `--gradient-<f>`: every `--gradient-<f>` blends a family with
+       ITS OWN hover (`var(--<f>-solid)` -> `var(--<f>-solid-hover)`, see
+       `roleRules` above) — same hue, one step darker. These two blend TWO
+       DIFFERENT FAMILIES' solids, which is a different job (a two-brand sweep
+       for a chart legend or a hero panel, not a button) and would be a silent
+       lie if it shared a name with the single-family form.
+
+       Both end on a fixed second family rather than `--accent`, so they read the
+       same intent on every preset: `--gradient-primary-info` is always
+       "the brand's CTA blended toward the categorical info blue", and
+       `--gradient-primary-accent-pink` is always "toward the fixed pink",
+       regardless of what a given preset's own `accent` happens to be.
+
+       MEASURED, per preset: on `think`, `--primary` (`#0099FF`) and `--info`
+       (`#0078D4`) are ~2 degrees apart in OKLCH hue — `--gradient-primary-info`
+       is a near-tonal sweep, barely a gradient at all. On `elemetrik`,
+       `--primary` (`#6832FF`) is violet and `--info` stays the same blue, so the
+       same token is a full violet -> blue sweep. Neither is a defect; a
+       fixed-hue role blended against two different brand primaries is SUPPOSED
+       to read differently per preset — that is the whole point of a role being
+       brand-independent while primary is not. */
+    "--gradient-primary-info": literal(
+      "linear-gradient(135deg, var(--primary-solid), var(--info-solid))",
+    ),
+    "--gradient-primary-info-ink": {
+      kind: "ink",
+      over: sweepSamples(solidRef("primary"), solidRef("info")),
+      candidates: [FILL_INK, FILL_WHITE],
+    },
+    "--gradient-primary-accent-pink": literal(
+      "linear-gradient(135deg, var(--primary-solid), var(--accent-pink-solid))",
+    ),
+    "--gradient-primary-accent-pink-ink": {
+      kind: "ink",
+      over: sweepSamples(solidRef("primary"), solidRef("accent-pink")),
+      candidates: [FILL_INK, FILL_WHITE],
+    },
+
     /* Status palette — categorical, not brand. Six states that must stay
        mutually distinguishable; rotating them off one seed makes them less so,
        not more. Deliberately NOT folded into `success`/`warning`/`danger`:
@@ -691,7 +730,7 @@ const STRUCTURAL_EXACT = new Set([
   "--shadow-dropdown", "--dd-hover-shadow", "--font-heading", "--font-body",
   "--font-mono", "--ease-entrance", "--radius", "--radius-chip", "--radius-card",
   "--radius-pill", "--gradient-avatar", "--gradient-avatar-2", "--gradient-avatar-3",
-  "--gradient-progress",
+  "--gradient-progress", "--gradient-primary-info", "--gradient-primary-accent-pink",
   ...ROLE_NAMES.map((f) => `--gradient-${f}`),
 ]);
 
@@ -764,6 +803,8 @@ function sheetOrder(
     "--gradient-avatar-2", "--gradient-avatar-2-ink",
     "--gradient-avatar-3-from", "--gradient-avatar-3", "--gradient-avatar-3-ink",
     "--gradient-progress",
+    "--gradient-primary-info", "--gradient-primary-info-ink",
+    "--gradient-primary-accent-pink", "--gradient-primary-accent-pink-ink",
   );
 
   /* Anything the factory emits that this list forgot still ships, in a sorted

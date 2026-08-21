@@ -26,12 +26,42 @@ declare module "@mui/material/styles" {
   }
 }
 
+/* `accent` / `accentGreen` / `accentPink` are not standard MUI palette
+ * intentions, so `theme.palette.accent` etc. does not typecheck without this —
+ * same declaration-merging mechanism as `CssThemeVariables` above, and it lives
+ * in the same package .d.ts output for the same reason: a consumer's own
+ * `Theme`/`ThemeOptions` imports pick it up automatically. `Palette["primary"]`
+ * is reused as the shape rather than restating the 8-key `SimplePaletteColor`
+ * interface, so this augmentation cannot drift from what MUI itself considers a
+ * complete palette colour. */
+declare module "@mui/material/styles" {
+  interface Palette {
+    accent: Palette["primary"];
+    accentGreen: Palette["primary"];
+    accentPink: Palette["primary"];
+  }
+  interface PaletteOptions {
+    accent?: PaletteOptions["primary"];
+    accentGreen?: PaletteOptions["primary"];
+    accentPink?: PaletteOptions["primary"];
+  }
+}
+
 /** MUI runs `augmentColor()` over every palette intention and derives the keys
  *  a theme did not supply. Derivation parses the colour — and `var(--primary)` is
  *  unparseable, so it throws at theme-creation time, which is build time. Every
  *  intention below must therefore supply `main`, `light`, `dark` and
  *  `contrastText` EXPLICITLY, plus its `*Channel` keys, leaving nothing to
- *  derive. */
+ *  derive.
+ *
+ *  `accent`, `accentGreen` and `accentPink` are NOT MUI intentions MUI itself
+ *  knows about — they carry no special meaning to `Button color="accent"` the
+ *  way `primary`/`error`/etc. do, MUI does not reserve them, and augmenting
+ *  them here is what stops `augmentColor()` throwing on them the same way it
+ *  would on any other custom palette colour with a `var()` value. They exist so
+ *  the engine's `--accent` / `--accent-green` / `--accent-pink` roles (see
+ *  `ROLE_NAMES` in `engine/ladder.ts`) are reachable from `theme.palette.*`
+ *  without a component reaching past the theme for a raw CSS var. */
 export const PALETTE_INTENTIONS = [
   "primary",
   "secondary",
@@ -39,6 +69,9 @@ export const PALETTE_INTENTIONS = [
   "warning",
   "info",
   "success",
+  "accent",
+  "accentGreen",
+  "accentPink",
 ] as const;
 
 export type PaletteIntention = (typeof PALETTE_INTENTIONS)[number];
@@ -153,14 +186,14 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
       contrastTextChannel: "var(--danger-channel)",
     },
     info: {
-      main: "var(--accent)",
-      mainChannel: "var(--accent-channel)",
-      light: "var(--accent-solid)",
-      lightChannel: "var(--accent-channel)",
-      dark: "var(--accent-solid-hover)",
-      darkChannel: "var(--accent-channel)",
-      contrastText: "var(--accent-on-solid)",
-      contrastTextChannel: "var(--accent-channel)",
+      main: "var(--info)",
+      mainChannel: "var(--info-channel)",
+      light: "var(--info-solid)",
+      lightChannel: "var(--info-channel)",
+      dark: "var(--info-solid-hover)",
+      darkChannel: "var(--info-channel)",
+      contrastText: "var(--info-on-solid)",
+      contrastTextChannel: "var(--info-channel)",
     },
     success: {
       main: "var(--success)",
@@ -171,6 +204,41 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
       darkChannel: "var(--success-channel)",
       contrastText: "var(--success-on-solid)",
       contrastTextChannel: "var(--success-channel)",
+    },
+    /* NOT a standard MUI intention — see the doc comment on `PALETTE_INTENTIONS`.
+     * `accent` is the active preset's own brand accent (`--accent`, lime on
+     * `think`, pink on `elemetrik`); `accentGreen` / `accentPink` are the two
+     * fixed categorical accents, identical hex on every preset. See `ROLE_NAMES`
+     * in `engine/ladder.ts`. */
+    accent: {
+      main: "var(--accent)",
+      mainChannel: "var(--accent-channel)",
+      light: "var(--accent-solid)",
+      lightChannel: "var(--accent-channel)",
+      dark: "var(--accent-solid-hover)",
+      darkChannel: "var(--accent-channel)",
+      contrastText: "var(--accent-on-solid)",
+      contrastTextChannel: "var(--accent-channel)",
+    },
+    accentGreen: {
+      main: "var(--accent-green)",
+      mainChannel: "var(--accent-green-channel)",
+      light: "var(--accent-green-solid)",
+      lightChannel: "var(--accent-green-channel)",
+      dark: "var(--accent-green-solid-hover)",
+      darkChannel: "var(--accent-green-channel)",
+      contrastText: "var(--accent-green-on-solid)",
+      contrastTextChannel: "var(--accent-green-channel)",
+    },
+    accentPink: {
+      main: "var(--accent-pink)",
+      mainChannel: "var(--accent-pink-channel)",
+      light: "var(--accent-pink-solid)",
+      lightChannel: "var(--accent-pink-channel)",
+      dark: "var(--accent-pink-solid-hover)",
+      darkChannel: "var(--accent-pink-channel)",
+      contrastText: "var(--accent-pink-on-solid)",
+      contrastTextChannel: "var(--accent-pink-channel)",
     },
     background: {
       default: "var(--background)",
@@ -377,7 +445,7 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
             // rename exists to remove).
             const TOK: Record<string, { mark: string; tint: string; on: string } | undefined> = {
               success: { mark: "--success", tint: "--success-bg", on: "--success-on-solid" },
-              info: { mark: "--accent", tint: "--accent-bg", on: "--accent-on-solid" },
+              info: { mark: "--info", tint: "--info-bg", on: "--info-on-solid" },
               warning: { mark: "--warning", tint: "--warning-bg", on: "--warning-on-solid" },
               error: { mark: "--danger", tint: "--danger-bg", on: "--danger-on-solid" },
             };

@@ -125,12 +125,33 @@ export const HOVER_MIX = 0.08;
 /* ── Roles ────────────────────────────────────────────────────────────────── */
 
 /**
- * The six families, in the order they appear in the sheet and on `/design/palette`.
+ * The nine families, in the order they appear in the sheet and on `/design/palette`.
  *
- * These are JOB NAMES, not hue names, and the list is closed. A seventh role is
- * a design decision with a component API behind it, not a colour someone liked —
+ * These are JOB NAMES, not hue names, and the list is closed. A new role is a
+ * design decision with a component API behind it, not a colour someone liked —
  * which is how the sheet this replaced accumulated `--sky`, `--cyan`, `--pink`
  * and `--terminal-green`, four families nothing brandable ever drove.
+ *
+ * It grew from six to nine for three named jobs, not because the ceiling moved:
+ *
+ *   `info`          — a genuine MUI/Bootstrap "informational" intention. It used
+ *                      to be backed by `--accent`, which collided the brand's own
+ *                      accent hue with a categorical status colour that has to
+ *                      read the same regardless of which brand is active. `info`
+ *                      is now its own family, with the same hex (`#0078D4`) in
+ *                      both presets — the one deliberately NON-brand-varying role
+ *                      besides the status palette.
+ *   `accent-green`  / `accent-pink` — fixed categorical accents, identical in
+ *                      every preset (`#B3D335` / `#EE4480`), for call sites that
+ *                      need a specific green or pink regardless of brand — a
+ *                      chart series, a badge colour — rather than "the brand's
+ *                      accent, whatever hue that happens to be". A preset's own
+ *                      `accent` is free to coincide with one of the two (think's
+ *                      accent IS `accent-green`; elemetrik's IS `accent-pink`) —
+ *                      that overlap is intended, not a bug to deduplicate away.
+ *
+ * The warning stands for whatever comes after these three: a role is earned by a
+ * component API, not added because a hex looked good.
  */
 export const ROLE_NAMES = [
   "primary",
@@ -139,6 +160,9 @@ export const ROLE_NAMES = [
   "success",
   "warning",
   "danger",
+  "info",
+  "accent-green",
+  "accent-pink",
 ] as const;
 
 export type RoleName = (typeof ROLE_NAMES)[number];

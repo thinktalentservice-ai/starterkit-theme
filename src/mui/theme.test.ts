@@ -59,9 +59,16 @@ describe("createStarterkitTheme", () => {
       // `error` is the one PALETTE_INTENTIONS key whose family name diverges
       // from the MUI key: the ABI's `danger` family backs MUI's `error`.
       expect(palette.error.main, scheme).toBe("var(--danger)");
-      // `info` is the other diverging pair: the ABI's `accent` family backs
-      // MUI's `info`, replacing the now-deleted sky-family token.
-      expect(palette.info.main, scheme).toBe("var(--accent)");
+      // `info` now backs directly onto the ABI's own `info` family — it used to
+      // borrow `--accent`, which collided the brand's own accent hue with a
+      // categorical status colour. `info` is real now, not a stand-in.
+      expect(palette.info.main, scheme).toBe("var(--info)");
+      // `accent` / `accentGreen` / `accentPink` are not standard MUI
+      // intentions (see `PALETTE_INTENTIONS`'s doc comment) but are still
+      // full palette colours, reachable the same way as any built-in one.
+      expect(palette.accent.main, scheme).toBe("var(--accent)");
+      expect(palette.accentGreen.main, scheme).toBe("var(--accent-green)");
+      expect(palette.accentPink.main, scheme).toBe("var(--accent-pink)");
       expect(palette.background.default, scheme).toBe("var(--background)");
       expect(palette.text.primary, scheme).toBe("var(--fg1)");
     }

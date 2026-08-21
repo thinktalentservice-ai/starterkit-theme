@@ -202,16 +202,37 @@ body {
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+.text-gradient-info {
+  background: var(--gradient-info);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-gradient-accent-green {
+  background: var(--gradient-accent-green);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.text-gradient-accent-pink {
+  background: var(--gradient-accent-pink);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 
 /* ── Glow helpers ──
    One per family, so a component never has to reach for a hue word. There were
    three, named violet/mint/amber, and no way to glow a success or a danger. */
-.glow-primary   { box-shadow: var(--glow-primary); }
-.glow-secondary { box-shadow: var(--glow-secondary); }
-.glow-accent    { box-shadow: var(--glow-accent); }
-.glow-success   { box-shadow: var(--glow-success); }
-.glow-warning   { box-shadow: var(--glow-warning); }
-.glow-danger    { box-shadow: var(--glow-danger); }
+.glow-primary      { box-shadow: var(--glow-primary); }
+.glow-secondary    { box-shadow: var(--glow-secondary); }
+.glow-accent       { box-shadow: var(--glow-accent); }
+.glow-success      { box-shadow: var(--glow-success); }
+.glow-warning      { box-shadow: var(--glow-warning); }
+.glow-danger       { box-shadow: var(--glow-danger); }
+.glow-info         { box-shadow: var(--glow-info); }
+.glow-accent-green { box-shadow: var(--glow-accent-green); }
+.glow-accent-pink  { box-shadow: var(--glow-accent-pink); }
 
 /* ── Status chip base ── */
 .status-chip {
