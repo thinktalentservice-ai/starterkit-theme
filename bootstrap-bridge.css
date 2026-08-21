@@ -15,21 +15,40 @@
  * baked in at Sass-compile time. `.btn` reads `background-color:
  * var(--bs-btn-bg)`, not `var(--bs-primary)` — so overriding the global
  * `--bs-primary` above does nothing for a rendered button. Section 2 overrides
- * those scoped variables directly, per component class, for the 8 Bootstrap
- * semantic colours.
+ * those scoped variables directly, per component class, for the 6 Bootstrap
+ * semantic colours this engine has a role for.
  *
  * See the HONEST LIMIT note at the end of this file for what neither section
- * covers. */
+ * covers.
+ *
+ * THIS FILE WAS BROKEN FOR A WHILE, SILENTLY. It was never migrated when the
+ * engine's hue-named families (`mint`, `electric`, `sky`, `amber-brand`,
+ * `rose`, plus a fixed `accent` alias into `mint`) were renamed to job-named
+ * roles (`primary`, `secondary`, `success`, `warning`, `danger`, `accent`) and
+ * then, in the same pass that added `info` / `accent-green` / `accent-pink`
+ * (see `ROLE_NAMES` in `src/engine/ladder.ts`), given a real `info` role for
+ * the first time. Every `var()` below that named a deleted hue family resolved
+ * to NOTHING — not an error, not a warning, just an absent custom property —
+ * so Bootstrap silently fell back to its own stock literals. Every reference
+ * below is now remapped to a token this package actually emits; see the
+ * per-section notes for the mapping and the reasoning behind each choice. */
 
 /* ── Section 1 — global `--bs-*` role and structural variables ─────────────── */
 :root {
-  /* Brand */
-  --bs-primary:   var(--accent);
-  --bs-secondary: var(--electric);
-  --bs-success:   var(--mint);
-  --bs-info:      var(--sky);
-  --bs-warning:   var(--amber-brand);
-  --bs-danger:    var(--rose);
+  /* Brand. Each Bootstrap semantic role now maps to the IDENTICALLY NAMED
+     engine role — `success`->`--success`, `warning`->`--warning`, and so on —
+     which did not used to be possible: `primary` had no dedicated family
+     before this rename (Bootstrap "primary" borrowed the fixed `accent` alias
+     into `mint`, because there was no separate primary hue), and `info` had no
+     family at all (Bootstrap "info" borrowed the now-deleted `sky`). Both are
+     real, first-class roles now, so both map by name, the same as the other
+     four always did. */
+  --bs-primary:   var(--primary);
+  --bs-secondary: var(--secondary);
+  --bs-success:   var(--success);
+  --bs-info:      var(--info);
+  --bs-warning:   var(--warning);
+  --bs-danger:    var(--danger);
   --bs-light:     var(--fg1);
   --bs-dark:      var(--background);
 
@@ -41,8 +60,19 @@
   --bs-secondary-bg:   var(--surface);
   --bs-tertiary-bg:    var(--surface-elevated);
   --bs-emphasis-color: var(--fg1);
-  --bs-link-color:     var(--electric-text);
-  --bs-link-hover-color: var(--electric-light);
+  /* Was `--electric-text` / `--electric-light`. `-text` renames directly:
+     `--secondary-text` is still the 4.5:1 rung `--electric-text` was. There is
+     no surviving "-light" rung to rename `--electric-light` to — the current
+     engine's per-role shape is 8 tokens (`--<f>`, `-text`, `-solid`,
+     `-solid-hover`, `-on-solid`, `-bg`, `-border`, `-channel`; see
+     `roleTokens()` in `src/engine/ladder.ts`), not the old family's 4-rung
+     light/text/main/deep shape. `--secondary` (the mark) is used instead: it is
+     GUARANTEED distinct from `--secondary-text` (`property.test.ts` assertion
+     5 asserts the two never collapse, in both schemes) and, like the token it
+     replaces, it is scheme-adaptive rather than a fixed fill. This is a
+     judgment call, not a mechanical rename — flagged as one. */
+  --bs-link-color:     var(--secondary-text);
+  --bs-link-hover-color: var(--secondary);
 
   /* Components that already read --bs-* at runtime */
   --bs-dropdown-bg:           var(--surface-elevated);
@@ -53,127 +83,140 @@
 
 /* ── Section 2 — compiled-literal component overrides ───────────────────────
  *
- * Colour-role table — 6 of Bootstrap's 8 semantic roles, not 8. `light` and
- * `dark` are deliberately EXCLUDED from everything below; see the dedicated
- * note just before the `.text-bg-*` block for why, it's a correctness issue,
- * not an oversight:
+ * Colour-role table — all 6 Bootstrap semantic roles this engine has a role
+ * for. `light` and `dark` are deliberately EXCLUDED from everything below; see
+ * the dedicated note just before the `.text-bg-*` block for why, it's a
+ * correctness issue, not an oversight:
  *
- *   primary -> --accent      secondary -> --electric   success -> --mint
- *   info    -> --sky         warning   -> --amber-brand danger  -> --rose
+ *   primary -> --primary     secondary -> --secondary   success -> --success
+ *   info    -> --info        warning   -> --warning     danger  -> --danger
  *
- * `--bs-btn-bg` / `--bs-btn-border-color` (Bootstrap sets both to the same
- * value for a solid button) take the role's colour token directly — hex to
- * hex, no format conversion needed. Disabled state matches Bootstrap's own
- * convention of reusing the base colour.
+ * `--bs-btn-bg` / `--bs-btn-border-color` use `--<role>-solid` — the family's
+ * exact seed hex, PINNED and never contrast-darkened (see the doc comment on
+ * `solidRef` in `src/presets/base.ts`) — not the bare `--<role>` mark. This
+ * matters and is not a style preference: `--<role>` is duty-searched for a
+ * 3:1 non-text contrast floor and, in LIGHT scheme, additionally carries a
+ * deliberate `lightShift` that moves it OFF the seed for every single role
+ * (confirmed by resolving both presets, both schemes — not assumed). A button
+ * fill using the bare mark would therefore render a different hex than the
+ * brand's actual colour on light backgrounds, for every role, on every brand.
+ * `--<role>-solid` is the one token contractually pinned to the seed in BOTH
+ * schemes (`property.test.ts` assertion 6), which is what a solid button fill
+ * is supposed to render.
  *
- * Hover and active states are set to the SAME token as the base state, not a
- * darker/lighter shade. Bootstrap derives its stock hover shade with Sass
- * `shade-color()`; this package has no equivalent per-role "hover shade" token
- * for all 6 roles (only 3 of 6 colours even have a `-deep`/`-dark` companion),
- * and using one for some roles and stock literals for the rest would be a
- * worse, inconsistent result than leaving every state the correct brand colour
- * with no shade change on interaction. See the HONEST LIMIT note below.
+ * `--bs-btn-color` (the text ink) uses `--<role>-on-solid` for ALL SIX roles.
+ * This bridge used to fall back to Bootstrap's own hardcoded `#fff` for
+ * `primary`/`secondary`/`danger` specifically because no measured ink token
+ * existed for the families backing them (`accent`, `electric`, `rose` in the
+ * old vocabulary). That gap is closed: every role now publishes
+ * `--<role>-on-solid`, chosen by MEASUREMENT over both the resting fill and
+ * its hover mix (`property.test.ts` assertion 8 — `expect(bad).toEqual([])`,
+ * zero exceptions, every role, every preset, both schemes), which is a
+ * strictly better answer than a hardcoded `#fff` that was never verified
+ * against any of this engine's actual seeds. `success`/`info`/`warning`
+ * already used a measured ink before this fix (spelled `--on-mint` /
+ * `--on-sky` / `--on-amber` in the old vocabulary); `primary`/`secondary`/
+ * `danger` now get the same treatment, closing the split that used to exist
+ * between the two halves of this table.
  *
- * `--bs-btn-color` (the text ink) uses this package's `--on-*` ink where one
- * exists (`success`/`info`/`warning`) and otherwise falls back to Bootstrap's
- * own shipped literal — this package does not publish `--on-accent`,
- * `--on-electric` or `--on-rose`, and inventing one is a design decision this
- * phase does not own. That fallback carries the SAME known characteristic
- * `src/engine/property.test.ts` already documents and accepts engine-wide:
- * white text on a dark-scheme primary/secondary fill is measurably imperfect
- * (obsidian's own dark `--mint`/`--electric` are 1.71:1 / low-contrast against
- * white by design — the property test proves this is unachievable for ANY
- * preset, not a defect specific to Bootstrap). This is an inherited, already
- * -tested tradeoff, not a new one Section 2 introduces. */
+ * Hover and active states use `--<role>-solid-hover` — a REAL shade change,
+ * where before every state repeated the base colour verbatim. That was a
+ * stated, deliberate limitation, not a preference: "this package has no
+ * equivalent per-role hover-shade token for all 6 roles" was true under the
+ * old vocabulary (only 3 of 6 old families even had a named darker rung) and
+ * is no longer true — `--<role>-solid-hover` is now emitted uniformly for
+ * every role (`roleTokens()`), and `--<role>-on-solid` is measured against it
+ * too (the same assertion 8 above checks both fill states), so the ink stays
+ * correct across the shade change without a second ink token. */
 
 .btn-primary {
-  --bs-btn-color: #fff; /* no --on-accent token; Bootstrap's shipped ink kept */
-  --bs-btn-bg: var(--accent);
-  --bs-btn-border-color: var(--accent);
-  --bs-btn-hover-color: #fff;
-  --bs-btn-hover-bg: var(--accent);
-  --bs-btn-hover-border-color: var(--accent);
-  --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: var(--accent);
-  --bs-btn-active-border-color: var(--accent);
-  --bs-btn-disabled-color: #fff;
-  --bs-btn-disabled-bg: var(--accent);
-  --bs-btn-disabled-border-color: var(--accent);
+  --bs-btn-color: var(--primary-on-solid);
+  --bs-btn-bg: var(--primary-solid);
+  --bs-btn-border-color: var(--primary-solid);
+  --bs-btn-hover-color: var(--primary-on-solid);
+  --bs-btn-hover-bg: var(--primary-solid-hover);
+  --bs-btn-hover-border-color: var(--primary-solid-hover);
+  --bs-btn-active-color: var(--primary-on-solid);
+  --bs-btn-active-bg: var(--primary-solid-hover);
+  --bs-btn-active-border-color: var(--primary-solid-hover);
+  --bs-btn-disabled-color: var(--primary-on-solid);
+  --bs-btn-disabled-bg: var(--primary-solid);
+  --bs-btn-disabled-border-color: var(--primary-solid);
 }
 
 .btn-secondary {
-  --bs-btn-color: #fff; /* no --on-electric token; Bootstrap's shipped ink kept */
-  --bs-btn-bg: var(--electric);
-  --bs-btn-border-color: var(--electric);
-  --bs-btn-hover-color: #fff;
-  --bs-btn-hover-bg: var(--electric);
-  --bs-btn-hover-border-color: var(--electric);
-  --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: var(--electric);
-  --bs-btn-active-border-color: var(--electric);
-  --bs-btn-disabled-color: #fff;
-  --bs-btn-disabled-bg: var(--electric);
-  --bs-btn-disabled-border-color: var(--electric);
+  --bs-btn-color: var(--secondary-on-solid);
+  --bs-btn-bg: var(--secondary-solid);
+  --bs-btn-border-color: var(--secondary-solid);
+  --bs-btn-hover-color: var(--secondary-on-solid);
+  --bs-btn-hover-bg: var(--secondary-solid-hover);
+  --bs-btn-hover-border-color: var(--secondary-solid-hover);
+  --bs-btn-active-color: var(--secondary-on-solid);
+  --bs-btn-active-bg: var(--secondary-solid-hover);
+  --bs-btn-active-border-color: var(--secondary-solid-hover);
+  --bs-btn-disabled-color: var(--secondary-on-solid);
+  --bs-btn-disabled-bg: var(--secondary-solid);
+  --bs-btn-disabled-border-color: var(--secondary-solid);
 }
 
 .btn-success {
-  --bs-btn-color: var(--on-mint);
-  --bs-btn-bg: var(--mint);
-  --bs-btn-border-color: var(--mint);
-  --bs-btn-hover-color: var(--on-mint);
-  --bs-btn-hover-bg: var(--mint);
-  --bs-btn-hover-border-color: var(--mint);
-  --bs-btn-active-color: var(--on-mint);
-  --bs-btn-active-bg: var(--mint);
-  --bs-btn-active-border-color: var(--mint);
-  --bs-btn-disabled-color: var(--on-mint);
-  --bs-btn-disabled-bg: var(--mint);
-  --bs-btn-disabled-border-color: var(--mint);
+  --bs-btn-color: var(--success-on-solid);
+  --bs-btn-bg: var(--success-solid);
+  --bs-btn-border-color: var(--success-solid);
+  --bs-btn-hover-color: var(--success-on-solid);
+  --bs-btn-hover-bg: var(--success-solid-hover);
+  --bs-btn-hover-border-color: var(--success-solid-hover);
+  --bs-btn-active-color: var(--success-on-solid);
+  --bs-btn-active-bg: var(--success-solid-hover);
+  --bs-btn-active-border-color: var(--success-solid-hover);
+  --bs-btn-disabled-color: var(--success-on-solid);
+  --bs-btn-disabled-bg: var(--success-solid);
+  --bs-btn-disabled-border-color: var(--success-solid);
 }
 
 .btn-info {
-  --bs-btn-color: var(--on-sky);
-  --bs-btn-bg: var(--sky);
-  --bs-btn-border-color: var(--sky);
-  --bs-btn-hover-color: var(--on-sky);
-  --bs-btn-hover-bg: var(--sky);
-  --bs-btn-hover-border-color: var(--sky);
-  --bs-btn-active-color: var(--on-sky);
-  --bs-btn-active-bg: var(--sky);
-  --bs-btn-active-border-color: var(--sky);
-  --bs-btn-disabled-color: var(--on-sky);
-  --bs-btn-disabled-bg: var(--sky);
-  --bs-btn-disabled-border-color: var(--sky);
+  --bs-btn-color: var(--info-on-solid);
+  --bs-btn-bg: var(--info-solid);
+  --bs-btn-border-color: var(--info-solid);
+  --bs-btn-hover-color: var(--info-on-solid);
+  --bs-btn-hover-bg: var(--info-solid-hover);
+  --bs-btn-hover-border-color: var(--info-solid-hover);
+  --bs-btn-active-color: var(--info-on-solid);
+  --bs-btn-active-bg: var(--info-solid-hover);
+  --bs-btn-active-border-color: var(--info-solid-hover);
+  --bs-btn-disabled-color: var(--info-on-solid);
+  --bs-btn-disabled-bg: var(--info-solid);
+  --bs-btn-disabled-border-color: var(--info-solid);
 }
 
 .btn-warning {
-  --bs-btn-color: var(--on-amber);
-  --bs-btn-bg: var(--amber-brand);
-  --bs-btn-border-color: var(--amber-brand);
-  --bs-btn-hover-color: var(--on-amber);
-  --bs-btn-hover-bg: var(--amber-brand);
-  --bs-btn-hover-border-color: var(--amber-brand);
-  --bs-btn-active-color: var(--on-amber);
-  --bs-btn-active-bg: var(--amber-brand);
-  --bs-btn-active-border-color: var(--amber-brand);
-  --bs-btn-disabled-color: var(--on-amber);
-  --bs-btn-disabled-bg: var(--amber-brand);
-  --bs-btn-disabled-border-color: var(--amber-brand);
+  --bs-btn-color: var(--warning-on-solid);
+  --bs-btn-bg: var(--warning-solid);
+  --bs-btn-border-color: var(--warning-solid);
+  --bs-btn-hover-color: var(--warning-on-solid);
+  --bs-btn-hover-bg: var(--warning-solid-hover);
+  --bs-btn-hover-border-color: var(--warning-solid-hover);
+  --bs-btn-active-color: var(--warning-on-solid);
+  --bs-btn-active-bg: var(--warning-solid-hover);
+  --bs-btn-active-border-color: var(--warning-solid-hover);
+  --bs-btn-disabled-color: var(--warning-on-solid);
+  --bs-btn-disabled-bg: var(--warning-solid);
+  --bs-btn-disabled-border-color: var(--warning-solid);
 }
 
 .btn-danger {
-  --bs-btn-color: #fff; /* no --on-rose token; Bootstrap's shipped ink kept */
-  --bs-btn-bg: var(--rose);
-  --bs-btn-border-color: var(--rose);
-  --bs-btn-hover-color: #fff;
-  --bs-btn-hover-bg: var(--rose);
-  --bs-btn-hover-border-color: var(--rose);
-  --bs-btn-active-color: #fff;
-  --bs-btn-active-bg: var(--rose);
-  --bs-btn-active-border-color: var(--rose);
-  --bs-btn-disabled-color: #fff;
-  --bs-btn-disabled-bg: var(--rose);
-  --bs-btn-disabled-border-color: var(--rose);
+  --bs-btn-color: var(--danger-on-solid);
+  --bs-btn-bg: var(--danger-solid);
+  --bs-btn-border-color: var(--danger-solid);
+  --bs-btn-hover-color: var(--danger-on-solid);
+  --bs-btn-hover-bg: var(--danger-solid-hover);
+  --bs-btn-hover-border-color: var(--danger-solid-hover);
+  --bs-btn-active-color: var(--danger-on-solid);
+  --bs-btn-active-bg: var(--danger-solid-hover);
+  --bs-btn-active-border-color: var(--danger-solid-hover);
+  --bs-btn-disabled-color: var(--danger-on-solid);
+  --bs-btn-disabled-bg: var(--danger-solid);
+  --bs-btn-disabled-border-color: var(--danger-solid);
 }
 
 /* `.btn-light` / `.btn-dark` are deliberately NOT overridden here — and
@@ -189,7 +232,7 @@
  * (default `#f8f9fa` / `#212529`) meant to read the same regardless of the
  * page's own scheme. Pairing a flipping token with a fixed ink measures out
  * at roughly 18-21:1 in dark scheme and roughly 1.0-1.35:1 in light scheme
- * (measured by running `resolveBrand()` for all 6 presets, both schemes, not
+ * (measured by running `resolveBrand()` for both presets, both schemes, not
  * assumed) — the SAME source producing a strong pass in one mode and text
  * that is functionally invisible in the other. Bootstrap's own compiled
  * literals for `.btn-light`/`.btn-dark` remain in effect instead: always
@@ -209,34 +252,28 @@
  * So instead of repointing `--bs-{role}-rgb`, `background-color` is overridden
  * directly, using the space-triple token in the MODERN `rgb(R G B / A)` syntax
  * it actually matches — same selector, same specificity, `!important` to match
- * the rule it replaces, later in the cascade so it wins.
+ * the rule it replaces, later in the cascade so it wins. `--<role>-channel` is
+ * the RGB triple of `--<role>` (the MARK, not `-solid` — see `roleRules()` in
+ * `src/presets/base.ts`), so these six render the scheme-adaptive mark colour
+ * at the requested opacity, same as every `.text-bg-*` utility always has.
  *
- * `primary` is the one role that can't use this form. `--bs-primary` maps to
- * `--accent` (a fixed ramp-index reference, `{k:"ramp", family:"mint",
- * index:2}`), NOT to `--mint` itself — and `--mint`'s own value is subject to
- * phase 5a's contrast-driven duty search, which can and does land it on a
- * DIFFERENT ramp index per preset (confirmed by actually running
- * `resolveBrand()` for all 6 presets, not assumed from the token definitions:
- * `--accent` and `--mint` differ in dark scheme for meridian/solstice/beacon,
- * and in light scheme for obsidian specifically — where `--accent`
- * deliberately stays on the ramp's natural step while `--mint` took a
- * contrast-driven shift, see `--accent`'s own doc comment in
- * `src/presets/obsidian.ts` — but not for the other 5 presets in light scheme,
- * where the two happen to coincide. Either way `--accent` is the value that is
- * always correct, so it's used unconditionally rather than only where the two
- * are known to differ today. There is no `--accent-channel` token to
- * substitute, so `.text-bg-primary` falls back to the plain hex form — correct
- * colour always, at the cost of not honouring a `.bg-opacity-*` utility on
- * this one role (the other four keep full opacity support). `.text-bg-light`
- * and `.text-bg-dark` are not overridden at all, for the identical
- * scheme-adaptive-token-vs-fixed-role reason documented above the `.btn-*`
- * block — Bootstrap's own literal stays in effect for both. */
-.text-bg-primary   { background-color: var(--accent) !important; }
-.text-bg-secondary { background-color: rgb(var(--electric-channel)   / var(--bs-bg-opacity, 1)) !important; }
-.text-bg-success   { background-color: rgb(var(--mint-channel)       / var(--bs-bg-opacity, 1)) !important; }
-.text-bg-info      { background-color: rgb(var(--sky-channel)        / var(--bs-bg-opacity, 1)) !important; }
-.text-bg-warning   { background-color: rgb(var(--amber-channel)      / var(--bs-bg-opacity, 1)) !important; }
-.text-bg-danger    { background-color: rgb(var(--rose-channel)       / var(--bs-bg-opacity, 1)) !important; }
+ * ALL SIX roles use this form, including `primary` — which the previous
+ * version of this file could not do. That was never actually a limitation of
+ * the ENGINE: `--accent-channel` (the old name for what is now
+ * `--primary`'s equivalent, `--primary-channel`) has existed for as long as
+ * `accent` has been a role, alongside every other family's `-channel` token
+ * (`property.test.ts` assertion 10 asserts every `-channel` token is the RGB
+ * triple of its base, for every role, unconditionally). The previous
+ * `.text-bg-primary { background-color: var(--accent) !important; }` — a
+ * plain-hex fallback with a comment claiming no channel token existed — was
+ * itself stale, independent of the role rename. Fixed here alongside
+ * everything else this pass touches. */
+.text-bg-primary   { background-color: rgb(var(--primary-channel)   / var(--bs-bg-opacity, 1)) !important; }
+.text-bg-secondary { background-color: rgb(var(--secondary-channel) / var(--bs-bg-opacity, 1)) !important; }
+.text-bg-success   { background-color: rgb(var(--success-channel)   / var(--bs-bg-opacity, 1)) !important; }
+.text-bg-info      { background-color: rgb(var(--info-channel)      / var(--bs-bg-opacity, 1)) !important; }
+.text-bg-warning   { background-color: rgb(var(--warning-channel)   / var(--bs-bg-opacity, 1)) !important; }
+.text-bg-danger    { background-color: rgb(var(--danger-channel)    / var(--bs-bg-opacity, 1)) !important; }
 
 /* HONEST LIMIT.
  *
@@ -249,17 +286,9 @@
  *     dedicated note above the `.text-bg-*` block: the two tokens those roles
  *     would need (`--fg1`, `--background`) are scheme-adaptive, Bootstrap's
  *     `light`/`dark` roles are not, and pairing them measured out to ~1:1
- *     contrast in light scheme across all 6 presets — a real, confirmed
+ *     contrast in light scheme across both presets — a real, confirmed
  *     regression, not a hypothetical one, caught by actually running
  *     `resolveBrand()` rather than trusting the mapping on paper.
- *   - `.text-bg-primary` does not honour a `.bg-opacity-*` utility — it uses
- *     the plain `var(--accent)` hex, not the alpha-aware `rgb(.. / ..)` form
- *     the other four roles use, because no `--accent-channel` token exists
- *     (see the note above `.text-bg-primary` itself). Correct colour beats
- *     matching a utility this app is not confirmed to use on that role.
- *   - `--bs-btn-hover-*` / `--bs-btn-active-*` hold the SAME colour as the base
- *     state (see the note above the `.btn-*` rules) — correct colour, no shade
- *     change on hover or press.
  *   - `--bs-btn-focus-shadow-rgb` and `--bs-btn-active-shadow` are untouched —
  *     the first is the same comma-triple format clash as `--bs-*-rgb`; the
  *     second (`inset 0 3px 5px rgba(0, 0, 0, 0.125)`) is a neutral depth cue,

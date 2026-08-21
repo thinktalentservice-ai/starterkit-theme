@@ -40,11 +40,21 @@ const PRESET_ENTRIES = Object.entries(PRESETS).filter(
 
 const RESOLVED = PRESET_ENTRIES.map(([id, preset]) => ({ id, preset, brand: resolveBrand(preset) }));
 
-/** The avatar sweeps. Their STOPS ARE NOT LISTED HERE, deliberately — see
- *  `stopsOf`. Only the gradient names are, because the set of avatar variants is
- *  a design decision and adding one without a row here should be a visible
+/** The avatar sweeps, PLUS the two cross-family sweeps in `sharedRules()`
+ *  (`--gradient-primary-info`, `--gradient-primary-accent-pink`) — same
+ *  measurement, same reason: any two-stop gradient whose ink is picked once and
+ *  scored on the worst point of the blend can trough between its stops, not
+ *  just at them (see the assertion below). Their STOPS ARE NOT LISTED HERE,
+ *  deliberately — see `stopsOf`. Only the gradient names are, because the set
+ *  is a design decision and adding one without a row here should be a visible
  *  omission rather than a silent gap. */
-const AVATAR_GRADIENTS = ["--gradient-avatar", "--gradient-avatar-2", "--gradient-avatar-3"] as const;
+const AVATAR_GRADIENTS = [
+  "--gradient-avatar",
+  "--gradient-avatar-2",
+  "--gradient-avatar-3",
+  "--gradient-primary-info",
+  "--gradient-primary-accent-pink",
+] as const;
 
 /**
  * Read a gradient's stop TOKENS out of the value the preset actually emits.
@@ -102,6 +112,27 @@ const AVATAR_SHORTFALLS: Record<string, [number, string, number]> = {
   "elemetrik|light|--gradient-avatar": [3.48, "#8576ff", 0],
   "elemetrik|dark|--gradient-avatar-3": [3.42, "#8678ff", 0],
   "elemetrik|light|--gradient-avatar-3": [3.42, "#8678ff", 0],
+  /* `--gradient-primary-info` on think: `--primary` and `--info` are ~2 degrees
+     apart in hue (see the token's own comment in `sharedRules()`), so the sweep
+     is nearly flat and the ink — picked to cover the whole blend — troughs at
+     the END stop, `--info-solid` itself. Scheme-invariant for the same reason
+     every fill is: both stops are solids. */
+  "think|dark|--gradient-primary-info": [4.23, "#0078d4", 1],
+  "think|light|--gradient-primary-info": [4.23, "#0078d4", 1],
+  /* `--gradient-primary-accent-pink`: think's primary (`#0099FF`) and the fixed
+     `--accent-pink` (`#EE4480`) sit on opposite sides of the candidate inks'
+     crossover, so — unlike the two above — the trough is INSIDE the blend
+     (t=0.60), not at an endpoint. */
+  "think|dark|--gradient-primary-accent-pink": [4.3, "#8f66b3", 0.6],
+  "think|light|--gradient-primary-accent-pink": [4.3, "#8f66b3", 0.6],
+  /* elemetrik's own `accent` IS `#EE4480` (see `elemetrik.ts`'s header on the
+     intended `accent == accent-pink` equality), so this sweep is primary
+     (`#6832FF`) -> accent-pink and troughs at the END stop, same shape as the
+     `info` entries above. elemetrik's OWN `--gradient-primary-info` clears
+     4.5:1 across the whole blend and has no entry here — violet-to-blue has
+     more room than think's near-tonal blue-to-blue. */
+  "elemetrik|dark|--gradient-primary-accent-pink": [3.64, "#ee4480", 1],
+  "elemetrik|light|--gradient-primary-accent-pink": [3.64, "#ee4480", 1],
 };
 
 /** How far a recorded ratio may move before it must be re-read and re-decided.

@@ -1,28 +1,37 @@
 /* ELEMETRIK — the second brand.
  *
- * Exactly TWO seeds differ from `think`: `primary` and `accent`. The other four
- * are byte-identical, and everything that is not a seed comes from `makePreset`.
- * That is the mechanical form of "the same component code works with both
- * themes" — there is no per-theme branch anywhere for a component to trip over,
- * because there is nothing per-theme to branch on.
+ * Exactly TWO brand seeds differ from `think`: `primary` and `accent`. `info`,
+ * `accent-green` and `accent-pink` are the three fixed categorical roles and are
+ * byte-identical across both presets by design — see `ROLE_NAMES`'s doc comment
+ * in `engine/ladder.ts`. `secondary` / `success` / `warning` / `danger` are also
+ * shared. Everything that is not a seed comes from `makePreset`. That is the
+ * mechanical form of "the same component code works with both themes" — there
+ * is no per-theme branch anywhere for a component to trip over, because there
+ * is nothing per-theme to branch on.
  *
- * `primary` is the elemetrik mark's violet, sampled directly. `accent` is a
- * chosen cyan, not a logo colour — the mark is monochrome violet, so the second
- * brand hue was free. `#06B6D4` sits 69 degrees from the violet in OKLCH, which
- * is far enough to read as a different role and close enough to stay in the same
- * cool family, and 53 degrees from `success`, which matters because a green and
- * a cyan carrying different meanings a few degrees apart is a real confusion.
+ * `primary` is the elemetrik mark's violet, sampled directly. `accent` is
+ * `#EE4480` — chosen, not sampled (the mark is monochrome violet) — and it is
+ * deliberately the SAME hex as the fixed categorical `accent-pink` role. Same
+ * reasoning as think's `accent == accent-green`: elemetrik's own brand accent
+ * and the fixed "pink" categorical happen to be the same colour, so the two
+ * tokens agree rather than shipping two near-identical pinks that drift apart
+ * on the next retune.
  *
- * IT WAS `#22D3EE` — one Tailwind step lighter — AND THAT SEED COLLAPSED THE
- * FAMILY. At L 0.797 it is very light, and in LIGHT mode the whole family walks
- * downward: `--accent` searches for 3.0:1 and `--accent-text` for 4.5:1, from
- * ramp rungs one step apart. Cyan at that lightness has almost no room between
- * those two rungs, so both searches terminated on the SAME hex, `#267b89`. Two
- * declared steps, one rendered colour — every contrast check passes on a
- * collapse, which is why the invariant that caught it is strict ORDERING rather
- * than any ratio. `#06B6D4` is L 0.715, four degrees of hue away and visually
- * the same brand cyan, and it separates cleanly: mark `#168397` at 4.15:1 and
- * text `#0f6171` at 6.61:1 against the light page.
+ * `accent` moved here from `#06B6D4` (a chosen cyan, 69 degrees from primary)
+ * to `#EE4480` specifically so it could equal `accent-pink`. `success` moved
+ * from `#10B981` to `#4CAF50` for the same reason `think` did — see its header.
+ *
+ * IT WAS `#22D3EE` FOR THE OLD CYAN ACCENT — one Tailwind step lighter — AND
+ * THAT SEED COLLAPSED THE FAMILY. At L 0.797 it is very light, and in LIGHT
+ * mode the whole family walks downward: `--accent` searches for 3.0:1 and
+ * `--accent-text` for 4.5:1, from ramp rungs one step apart. Cyan at that
+ * lightness has almost no room between those two rungs, so both searches
+ * terminated on the SAME hex, `#267b89`. Two declared steps, one rendered
+ * colour — every contrast check passes on a collapse, which is why the
+ * invariant that caught it is strict ORDERING rather than any ratio. This
+ * history is kept because it is why `#22D3EE` was never a candidate when
+ * `accent` was re-picked for the `accent-pink` equality either: a pale seed is
+ * a pale seed regardless of which fixed role it is chosen to match.
  *
  * WHAT THE VIOLET COSTS, MEASURED. `#6832FF` is L 0.531 — dark for a brand hue.
  * On the dark `--surface` it reads 3.10:1, which clears its own 3.0 mark duty by
@@ -50,11 +59,22 @@ export const ELEMETRIK: PresetSpec = makePreset({
     primary: "#6832FF",
     /** Shared neutral slate — identical to think's. */
     secondary: "#64748B",
-    /** Chosen, not sampled: the mark is monochrome. 69 degrees from primary,
-     *  53 from success. NOT the lighter `#22D3EE` — see the header. */
-    accent: "#06B6D4",
-    success: "#10B981",
+    /** Chosen, not sampled: the mark is monochrome. Deliberately equal to
+     *  `accent-pink` — see the header for why. NOT the lighter `#22D3EE` this
+     *  seed used to be, and NOT the old `#06B6D4` cyan either — see the header. */
+    accent: "#EE4480",
+    success: "#4CAF50",
     warning: "#F59E0B",
     danger: "#F43F5E",
+    /** Fixed categorical "informational" role — same hex as think's. Not a
+     *  brand hue; see `ROLE_NAMES` in `engine/ladder.ts`. */
+    info: "#0078D4",
+    /** Fixed categorical accent — same hex as think's, and as think's own
+     *  `accent`. A genuinely new colour for elemetrik: nothing else in this
+     *  preset is this green. */
+    "accent-green": "#B3D335",
+    /** Fixed categorical accent — same hex as think's, and as elemetrik's own
+     *  `accent` above (intended equality, see header). */
+    "accent-pink": "#EE4480",
   },
 });
