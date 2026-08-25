@@ -798,7 +798,19 @@ describe("property — invariants across every preset, both schemes", () => {
        deliberately-equal pair that starts to drift is its own defect and fails
        here too. A name-matched skip list would have to be extended by hand for
        the next intended equality and would silently swallow an unintended one
-       that happened to match the pattern. */
+       that happened to match the pattern.
+
+       THE BYTE-IDENTICAL BRANCH IS SOUND ONLY BECAUSE `family()` IS UNIFORM.
+       Every role is built by the same constructor with the same geometry, the
+       same two slots and the same lightShift, and none carries a `darkFloor` /
+       `darkTarget` / `darkChromaRetention`, so equal seeds cannot diverge. The
+       one asymmetry in the whole engine is `fillRef`, which floors
+       `--primary-solid` and nothing else — and `primary` is not seed-equal to
+       any family in either preset, so it never reaches this branch. If a preset
+       ever seeds another role to the primary's hex, THIS is what fails, and it
+       fails correctly: the two would genuinely render different fills. The
+       message will say they share a seed and rendered differently, which is
+       true; it just will not say the floor is why. */
     const bad: string[] = [];
     let compared = 0;
     for (const { id, preset, brand } of RESOLVED) {
