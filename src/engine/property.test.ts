@@ -160,10 +160,14 @@ const AVATAR_SHORTFALLS: Record<string, [number, string, number]> = {
   "think|light|--gradient-primary-accent-pink": [3.64, "#ee4480", 1],
   /* elemetrik's own `accent` IS `#EE4480` (see `elemetrik.ts`'s header on the
      intended `accent == accent-pink` equality), so this sweep is primary
-     (`#6832FF`) -> accent-pink and troughs at the END stop, same shape as the
-     `info` entries above. elemetrik's OWN `--gradient-primary-info` clears
-     4.5:1 across the whole blend and has no entry here — violet-to-blue has
-     more room than think's near-tonal blue-to-blue. */
+     (`#6832FF`) -> accent-pink and troughs at the END stop, the same shape as
+     think's two rows above.
+
+     NEITHER PRESET HAS A `--gradient-primary-info` ROW ANY MORE. elemetrik's
+     never did — violet to blue has room. think's did, twice, and does not now:
+     see the deletion note above `--gradient-avatar`. So `accent-pink` is the
+     only cross-family sweep still short of AA, in both presets, at the same
+     3.64 on the same stop. */
   "elemetrik|dark|--gradient-primary-accent-pink": [3.64, "#ee4480", 1],
   "elemetrik|light|--gradient-primary-accent-pink": [3.64, "#ee4480", 1],
 };
@@ -176,22 +180,34 @@ const AVATAR_DRIFT = 0.05;
 /** The floor assertion 17 holds every pair of DIFFERENT roles to, in CIEDE2000.
  *
  *  SET BETWEEN THE PERCEPTUAL FLOOR AND THE PALETTE'S OWN TIGHTEST HONEST PAIR,
- *  and it has to be, because both ends are real. A just-noticeable difference in
- *  CIEDE2000 is ~2.3, so anything below that is not "close", it is the same
- *  colour. The tightest pair these two presets legitimately ship is
- *  `--danger-text` against `--accent-pink-text` in light — rose and pink, two
- *  genuinely neighbouring hues, at 6.79. 6.0 leaves 0.79 of headroom under that
- *  and is nowhere near the 8-bit rounding noise the ramps quantise to.
+ *  and it has to be, because both ends are real. `deltaE.ts` states the standard
+ *  JND as dE00 <= 1.0, which is the figure for two patches meeting at a hard
+ *  edge under controlled light — the right threshold for asking "did the engine
+ *  reproduce this colour". It is the WRONG threshold here: two buttons in a
+ *  layout are neither edge-adjacent nor viewed under controlled light, and the
+ *  commonly cited figure for "distinguishable at a glance" in that setting is
+ *  ~2.3. Both numbers are correct about different questions, and an earlier
+ *  version of this comment asserted one while `deltaE.ts` documented the other
+ *  with no cross-reference between them.
+ *
+ *  The tightest pair these two presets legitimately ship is `--danger-text`
+ *  against `--accent-pink-text` in light — rose and pink, two genuinely
+ *  neighbouring hues, at 6.79. 6.0 leaves 0.79 of headroom under that and is
+ *  nowhere near the 8-bit rounding noise the ramps quantise to.
  *
  *  ROUNDED DOWN FROM THE MEASUREMENT, for the same reason `darkFloor`'s values
  *  are: a threshold set EQUAL to what was measured fails on the next harmless
  *  re-quantisation and teaches everyone to nudge the constant, which is how a
  *  gate stops meaning anything.
  *
- *  It is not a design target. Nothing here tries to reach 6.0; roles that are
- *  supposed to look alike are exempted by construction below, and every other
- *  pair clears it by a wide margin. It is the line under which two roles have
- *  stopped being two roles. */
+ *  IT IS A FLOOR, NOT A RATCHET, AND THAT IS A POLICY CHOICE WITH A COST. A
+ *  future seed landing at 6.5 passes here while quietly taking the palette
+ *  minimum from 6.79 to 6.5. Accepted deliberately: a ratchet pinned to the
+ *  current minimum fails on every legitimate reseed that moves any hue toward
+ *  any neighbour, which is most of them, and a gate that fails on ordinary work
+ *  gets routed around. The line this draws is "two roles have stopped being two
+ *  roles", not "the palette may never get tighter". Nothing here tries to REACH
+ *  6.0 either; every non-twin pair clears it by a wide margin. */
 const MIN_ROLE_SEPARATION = 6.0;
 
 /** The rungs assertion 17 compares, and the reason it compares LIKE with LIKE.
@@ -202,6 +218,139 @@ const MIN_ROLE_SEPARATION = 6.0;
  *  can see. `-bg` / `-border` / `-channel` are excluded because they are alpha
  *  or triple forms of a rung already listed. */
 const PEER_RUNGS = ["", "-text", "-solid", "-solid-hover"] as const;
+
+/** The ONE cross-rung comparison that is still a same-job comparison: a HOVERED
+ *  fill of one family against another family's RESTING fill. Two solid buttons
+ *  sit side by side and only one of them is under the cursor, so those are the
+ *  two colours actually on screen together — like-rung alone never looks at that
+ *  pair, and "a hovered primary turns into the info button next to it" is a real
+ *  defect it would miss. Measured across both presets and both schemes the
+ *  tightest is 9.39 (`--danger-solid-hover` vs `--accent-pink-solid`), so this
+ *  clears the floor with room; it is asserted because the case is real, not
+ *  because anything is near it.
+ *
+ *  THE REST OF THE CROSS-RUNG SPACE IS DELIBERATELY NOT ASSERTED, and the number
+ *  is written down rather than left for someone to rediscover: the tightest
+ *  non-twin cross-rung pair in the palette is `--primary-solid-hover` `#0171bf`
+ *  against `--info` `#236cd3` at 5.014 in think/dark — a hovered button fill
+ *  against a mark colour. Below this floor, above any JND, and two different
+ *  jobs. Extending the assertion across all cross-rung pairs would fail on that
+ *  today, i.e. would assert that colours which never share a surface must
+ *  differ. */
+const CROSS_RUNG_PEERS = [["-solid-hover", "-solid"]] as const;
+
+/** Families a preset SEEDS IDENTICALLY ON PURPOSE, declared per preset.
+ *
+ *  DECLARED, NOT DERIVED, AND THE FIRST VERSION OF THIS WAS DERIVED AND WRONG.
+ *  Inferring intent from `seedA === seedB` cannot tell an intended twin from the
+ *  exact mistake assertion 17 exists to catch: give `danger` the `accent-pink`
+ *  hex by accident and a derived exemption calls it intentional and approves the
+ *  collision. Found in Codex review of this very change, which is fitting — the
+ *  assertion was written because a role collision shipped unseen, and its first
+ *  exemption had a hole of the same shape.
+ *
+ *  So the table IS the intent, and assertion 17 checks it in BOTH directions: a
+ *  declared pair must actually share a seed and render identically, and a pair
+ *  that shares a seed WITHOUT being declared fails. Adding an intended twin is a
+ *  line here, which is the point — it is a design decision, so someone should
+ *  have to write it down.
+ *
+ *  Both entries are documented in their preset headers: think's `accent` IS
+ *  `accent-green` (`#B3D335`), elemetrik's IS `accent-pink` (`#EE4480`). */
+const INTENDED_TWINS: Record<string, ReadonlyArray<readonly [RoleName, RoleName]>> = {
+  think: [["accent", "accent-green"]],
+  elemetrik: [["accent", "accent-pink"]],
+};
+
+/** Assertion 17's entire comparison, extracted so 17b can run the SAME code over
+ *  a fault-injected preset.
+ *
+ *  EXTRACTED BECAUSE THE FIRST VERSION'S FAULT INJECTION PROVED NOTHING. 17b
+ *  measured one pair itself, with its own `deltaE00Hex` call, so deleting the
+ *  comparison inside 17 left BOTH tests green — the injection exercised a COPY
+ *  of the logic rather than the logic. The comment above it claimed the
+ *  opposite. Codex found it. 17b now feeds the re-injected preset through this
+ *  function and asserts on what it returns, so gutting the body below fails 17b
+ *  as well. */
+function separationFaults(id: string, preset: PresetSpec, brand: ReturnType<typeof resolveBrand>) {
+  const bad: string[] = [];
+  const declared = new Set((INTENDED_TWINS[id] ?? []).map(([a, b]) => [a, b].sort().join("|")));
+  const seenTwins = new Set<string>();
+  let compared = 0;
+  let twinChecks = 0;
+
+  for (const scheme of SCHEMES) {
+    const map = scheme === "dark" ? brand.dark : brand.light;
+    for (let i = 0; i < ROLE_NAMES.length; i++) {
+      for (let j = i + 1; j < ROLE_NAMES.length; j++) {
+        const A = ROLE_NAMES[i]!;
+        const B = ROLE_NAMES[j]!;
+        const key = [A, B].sort().join("|");
+        const seedA = preset.families[A]?.seed;
+        const seedB = preset.families[B]?.seed;
+        if (seedA === undefined || seedB === undefined) {
+          bad.push(`${id}|${A} or ${B} has no seed — ROLE_NAMES and the preset disagree`);
+          continue;
+        }
+        const sameSeed = seedA.toLowerCase() === seedB.toLowerCase();
+        const isTwin = declared.has(key);
+        if (scheme === "dark") {
+          if (sameSeed && !isTwin) {
+            bad.push(
+              `${id}|--${A} and --${B} both seed ${seedA} but are not declared in INTENDED_TWINS — two roles, one colour`,
+            );
+          }
+          if (isTwin && !sameSeed) {
+            bad.push(
+              `${id}|--${A} (${seedA}) and --${B} (${seedB}) are declared twins but no longer share a seed`,
+            );
+          }
+        }
+        if (isTwin) seenTwins.add(key);
+
+        const rungPairs: Array<readonly [string, string]> = [
+          ...PEER_RUNGS.map((r) => [r, r] as const),
+          ...(isTwin
+            ? []
+            : CROSS_RUNG_PEERS.flatMap(([x, y]) => [[x, y] as const, [y, x] as const])),
+        ];
+        for (const [rA, rB] of rungPairs) {
+          const a = map.get(`--${A}${rA}`);
+          const b = map.get(`--${B}${rB}`);
+          if (a === undefined || b === undefined) {
+            bad.push(`${id}|${scheme}|--${A}${rA} or --${B}${rB} is not emitted`);
+            continue;
+          }
+          if (isTwin) {
+            /* Declared the same on purpose — so they must render the same, to
+               the byte. Not skipped: an intended twin that starts to drift is a
+               defect this is the only place that can see. */
+            twinChecks++;
+            if (a !== b) {
+              bad.push(
+                `${id}|${scheme}|--${A}${rA} ${a} and --${B}${rB} ${b} are declared twins but rendered differently`,
+              );
+            }
+            continue;
+          }
+          compared++;
+          const dE = deltaE00Hex(a, b);
+          if (dE < MIN_ROLE_SEPARATION) {
+            bad.push(
+              `${id}|${scheme}|--${A}${rA} ${a} vs --${B}${rB} ${b} — dE00 ${dE.toFixed(2)} < ${MIN_ROLE_SEPARATION}`,
+            );
+          }
+        }
+      }
+    }
+  }
+  for (const key of declared) {
+    if (!seenTwins.has(key)) {
+      bad.push(`${id}|INTENDED_TWINS names ${key}, which is not a pair of ROLE_NAMES`);
+    }
+  }
+  return { bad, compared, twinChecks };
+}
 
 /** The same preset with ONE family reseeded — the fuzz suite's `withSeed`,
  *  narrowed to `primary`, so a probe changes exactly the input under test and
@@ -777,11 +926,11 @@ describe("property — invariants across every preset, both schemes", () => {
        above this one measures a token against a BACKDROP — is it legible, is it
        ordered, does it clear its duty. Not one of them measures two roles
        against EACH OTHER, and two roles that resolve to the same hex pass all of
-       them perfectly: `--info-solid` and `--primary-solid` were dE00 1.48 apart
-       on think (hover 1.09, under the ~2.3 JND), both cleared 4.5:1 with the
-       same white label, `warnings` was empty, and a nine-family palette was
-       quietly rendering eight. It was reported by a person looking at
-       /design/brand, which is the detection method this is replacing.
+       them perfectly: `--info-solid` and think's `--primary-solid` were dE00
+       1.48 apart (hover 1.09), both cleared 4.5:1 with the same white label,
+       `warnings` was empty, and a nine-family palette was quietly rendering
+       eight. It was reported by a person looking at /design/brand, which is the
+       detection method this replaces.
 
        WHY IT HAPPENED, because the shape recurs: `fillRef` floors
        `--primary-solid` until white clears `SOLID_WHITE_FLOOR`, and ANY azure
@@ -790,97 +939,90 @@ describe("property — invariants across every preset, both schemes", () => {
        the collision is a property of the PAIR, and a pair is what nothing was
        looking at.
 
-       THE EXEMPTION IS DERIVED AND TWO-SIDED, NEVER A SKIP LIST. Two families
-       are allowed to look identical exactly when they were SEEDED identically —
-       think's `accent` IS `accent-green`, elemetrik's IS `accent-pink`, both
-       intended and both documented in their preset headers. So instead of
-       skipping those pairs, they are asserted to be BYTE-IDENTICAL: a
-       deliberately-equal pair that starts to drift is its own defect and fails
-       here too. A name-matched skip list would have to be extended by hand for
-       the next intended equality and would silently swallow an unintended one
-       that happened to match the pattern.
-
-       THE BYTE-IDENTICAL BRANCH IS SOUND ONLY BECAUSE `family()` IS UNIFORM.
-       Every role is built by the same constructor with the same geometry, the
-       same two slots and the same lightShift, and none carries a `darkFloor` /
-       `darkTarget` / `darkChromaRetention`, so equal seeds cannot diverge. The
-       one asymmetry in the whole engine is `fillRef`, which floors
-       `--primary-solid` and nothing else — and `primary` is not seed-equal to
-       any family in either preset, so it never reaches this branch. If a preset
-       ever seeds another role to the primary's hex, THIS is what fails, and it
-       fails correctly: the two would genuinely render different fills. The
-       message will say they share a seed and rendered differently, which is
-       true; it just will not say the floor is why. */
+       The comparison itself lives in `separationFaults` so that 17b can drive
+       the identical code with a broken preset. See `INTENDED_TWINS` for why the
+       exemption is declared rather than inferred from equal seeds. */
     const bad: string[] = [];
     let compared = 0;
+    let twinChecks = 0;
     for (const { id, preset, brand } of RESOLVED) {
-      for (const scheme of SCHEMES) {
-        const map = scheme === "dark" ? brand.dark : brand.light;
-        for (let i = 0; i < ROLE_NAMES.length; i++) {
-          for (let j = i + 1; j < ROLE_NAMES.length; j++) {
-            const A = ROLE_NAMES[i]!;
-            const B = ROLE_NAMES[j]!;
-            const seedA = preset.families[A]?.seed;
-            const seedB = preset.families[B]?.seed;
-            if (seedA === undefined || seedB === undefined) {
-              bad.push(`${id}|${A} or ${B} has no seed — ROLE_NAMES and the preset disagree`);
-              continue;
-            }
-            const twinned = seedA.toLowerCase() === seedB.toLowerCase();
-            for (const rung of PEER_RUNGS) {
-              const a = map.get(`--${A}${rung}`);
-              const b = map.get(`--${B}${rung}`);
-              if (a === undefined || b === undefined) {
-                bad.push(`${id}|${scheme}|--${A}${rung} or --${B}${rung} is not emitted`);
-                continue;
-              }
-              compared++;
-              if (twinned) {
-                /* Seeded the same on purpose — so they must render the same, to
-                   the byte. Not skipped: an intended twin that drifts apart is a
-                   defect this is the only place to catch. */
-                if (a !== b) {
-                  bad.push(
-                    `${id}|${scheme}|--${A}${rung} ${a} and --${B}${rung} ${b} share seed ${seedA} but rendered differently`,
-                  );
-                }
-                continue;
-              }
-              const dE = deltaE00Hex(a, b);
-              if (dE < MIN_ROLE_SEPARATION) {
-                bad.push(
-                  `${id}|${scheme}|--${A}${rung} ${a} vs --${B}${rung} ${b} — dE00 ${dE.toFixed(2)} < ${MIN_ROLE_SEPARATION}`,
-                );
-              }
-            }
-          }
-        }
-      }
+      const r = separationFaults(id, preset, brand);
+      bad.push(...r.bad);
+      compared += r.compared;
+      twinChecks += r.twinChecks;
     }
     expect(bad).toEqual([]);
-    /* A typo in a rung name would empty the loop and pass. 2 presets x 2 schemes
-       x 36 pairs x 4 rungs = 576. */
-    expect(compared, "nothing was compared — the assertion would be vacuous").toBe(576);
+    /* A typo in a rung name would empty the loop and pass, so the shape of the
+       work is pinned too. Per preset per scheme: 36 unordered ROLE_NAMES pairs.
+       One of the 36 is a declared twin, which takes the 4 like-rung checks as
+       BYTE-EQUALITY and skips the cross-rung pair; the other 35 take 4 like-rung
+       plus 2 cross-rung dE comparisons.
+         dE:   2 presets x 2 schemes x 35 pairs x 6 = 840
+         twin: 2 presets x 2 schemes x  1 pair  x 4 =  16
+       Counted separately on purpose: an earlier version incremented one counter
+       for both and reported 576 "comparisons" when 16 of them never reached
+       `deltaE00Hex` at all. */
+    expect(compared, "dE comparisons — nothing measured, the assertion would be vacuous").toBe(840);
+    expect(twinChecks, "declared-twin byte checks").toBe(16);
   });
 
-  it("17b. assertion 17 actually fires — the collision that shipped is re-injected and caught", () => {
-    /* FAULT INJECTION, because an invariant nobody has seen fail is a hope. This
-       reseeds `info` back to the `#0078D4` that shipped and asserts 17's own
-       comparison reports the primary/info fills. Without this, deleting the body
-       of 17 leaves a green suite and a green build. */
-    const think = PRESET_ENTRIES.find(([id]) => id === "think")?.[1];
-    expect(think, "think preset missing").toBeDefined();
+  it("17b. assertion 17's own comparison fires — the collision that shipped is re-injected", () => {
+    /* FAULT INJECTION THROUGH THE REAL CODE PATH. The first version of this
+       measured one pair with its own `deltaE00Hex` call, which meant deleting
+       the comparison inside 17 left both tests green — it verified a copy of the
+       logic, not the logic, while claiming otherwise in a comment. It now calls
+       `separationFaults`, so emptying that function fails HERE too.
+
+       Three things are asserted, not one: that the shipped preset is clean, that
+       re-injecting `#0078D4` produces faults, and that the faults are the
+       primary/info FILLS specifically rather than some unrelated regression that
+       would make this pass for the wrong reason. */
+    const entry = PRESET_ENTRIES.find(([id]) => id === "think");
+    expect(entry, "think preset missing").toBeDefined();
+    const [id, think] = entry!;
+
+    expect(separationFaults(id, think, resolveBrand(think)).bad).toEqual([]);
+
     const reinjected: PresetSpec = {
-      ...think!,
-      families: { ...think!.families, info: { ...think!.families.info!, seed: "#0078D4" } },
+      ...think,
+      families: { ...think.families, info: { ...think.families.info!, seed: "#0078D4" } },
     };
-    const map = resolveBrand(reinjected).dark;
-    const dE = deltaE00Hex(map.get("--primary-solid")!, map.get("--info-solid")!);
-    expect(dE).toBeLessThan(MIN_ROLE_SEPARATION);
-    /* And the shipped seed clears it, on the same measurement. */
-    const shipped = resolveBrand(think!).dark;
+    const faults = separationFaults(id, reinjected, resolveBrand(reinjected)).bad;
+    expect(faults.length).toBeGreaterThan(0);
     expect(
-      deltaE00Hex(shipped.get("--primary-solid")!, shipped.get("--info-solid")!),
-    ).toBeGreaterThanOrEqual(MIN_ROLE_SEPARATION);
+      faults.filter((f) => f.includes("--primary-solid") && f.includes("--info-solid")).length,
+      `re-injection produced faults, but not the primary/info fill collision: ${faults.join(" ; ")}`,
+    ).toBeGreaterThan(0);
+  });
+
+  it("17c. an ACCIDENTAL shared seed is a failure, not an exemption", () => {
+    /* The hole the derived exemption had. Two roles seeded to the same hex by
+       mistake looked exactly like think's intended `accent == accent-green` to
+       code that inferred intent from equality, so the collision it exists to
+       catch was the one case it approved. Injects `danger = accent-pink`'s hex,
+       which nothing declares, and asserts it fails. */
+    const entry = PRESET_ENTRIES.find(([id]) => id === "think");
+    const [id, think] = entry!;
+    const clashed: PresetSpec = {
+      ...think,
+      families: { ...think.families, danger: { ...think.families.danger!, seed: "#EE4480" } },
+    };
+    const faults = separationFaults(id, clashed, resolveBrand(clashed)).bad;
+    expect(faults.some((f) => f.includes("not declared in INTENDED_TWINS"))).toBe(true);
+  });
+
+  it("17d. a declared twin that stops being one fails in both directions", () => {
+    /* The other half of the two-sided check. Moving `accent-green` off think's
+       lime leaves INTENDED_TWINS naming a pair that no longer shares a seed —
+       which is a stale declaration, and stale declarations are how an exemption
+       quietly widens. */
+    const entry = PRESET_ENTRIES.find(([id]) => id === "think");
+    const [id, think] = entry!;
+    const split: PresetSpec = {
+      ...think,
+      families: { ...think.families, "accent-green": { ...think.families["accent-green"]!, seed: "#7FB800" } },
+    };
+    const faults = separationFaults(id, split, resolveBrand(split)).bad;
+    expect(faults.some((f) => f.includes("declared twins but no longer share a seed"))).toBe(true);
   });
 });
