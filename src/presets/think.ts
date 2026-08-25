@@ -1,7 +1,8 @@
 /* THINK — the default brand.
  *
- * `primary` is sampled from the think mark: the rightmost chevron (`#0099FF`,
- * stated by the brand owner as the primary focus). `secondary` is a neutral
+ * `primary` is `#37A3FE`, the brand owner's chosen refresh of the mark's
+ * rightmost chevron (previously `#0099FF`, sampled directly and stated at the
+ * time as the primary focus). `secondary` is a neutral
  * slate shared with elemetrik. `success` / `warning` / `danger` are the shared
  * status hues, and `info` / `accent-green` / `accent-pink` are the three fixed
  * categorical roles, identical hex in both presets — see `ROLE_NAMES`'s doc
@@ -31,7 +32,28 @@
  * `accent` moved from `#D0E28C` (a paler, unsaturated lime sampled off the mark)
  * to `#B3D335` specifically so it COULD equal `accent-green` — a single
  * measured lime serving both jobs beats two near-identical limes that drift
- * apart the next time either is retuned. `success` moved from `#10B981` (a
+ * apart the next time either is retuned.
+ *
+ * THE MARK AND THE BUTTON FILL ARE DIFFERENT COLOURS HERE, ON PURPOSE. `#37A3FE`
+ * is bright — OKLCH L 0.698 — and white on it reads 2.68:1, so the `ink` rule
+ * measured its way to the DARK label and think's primary button looked like a
+ * different component from elemetrik's, whose violet carries white at 6.02:1.
+ * `fillRef` in `base.ts` floors the primary SOLID FILL to `#007acd` (4.50:1
+ * resting, 5.10:1 hover), at which point white wins on the numbers with the
+ * candidate list untouched. Nothing is forced and nothing is acknowledged.
+ *
+ * What that costs, measured: dE00 14.1 between the mark and the fill. A
+ * `--primary` chip beside a primary button is visibly two blues. The mark, the
+ * text rungs, the borders, the glows, the focus ring and all three avatar
+ * gradients keep `#37A3FE`; only the fill, its hover, the gradients built from
+ * them and the measured label move. elemetrik is a byte-identical no-op — its
+ * seed already clears the floor, so `sink` returns it untouched.
+ *
+ * The alternative that avoids the split entirely is seeding `#007ACD` itself,
+ * which gives dE00 0 and needs no mechanism, at the cost of a much darker mark
+ * (dark `--primary` 6.22 -> 4.15) and a near-navy `#004f84` in light mode. That
+ * was considered and declined: the brand hue is the thing being chosen here,
+ * and the button is the thing with the contrast obligation. `success` moved from `#10B981` (a
  * teal-leaning green) to `#4CAF50` (a warmer, more categorical green) for the
  * same reason from the other side: `success` and the status palette should not
  * be fighting `accent-green` for the same visual territory three roles away.
@@ -53,8 +75,9 @@ export const THINK: PresetSpec = makePreset({
   id: "think",
   name: "Think",
   seeds: {
-    /** The mark's rightmost chevron — the stated primary focus. */
-    primary: "#0099FF",
+    /** The brand owner's chosen primary. See the header for why the BUTTON does
+     *  not render this hex and `--primary-solid` is `#007acd` instead. */
+    primary: "#37A3FE",
     /** Shared neutral slate. See the header for why this is not a logo colour. */
     secondary: "#64748B",
     /** think's own brand lime — deliberately equal to `accent-green`. See the

@@ -99,6 +99,39 @@ export const FILL_INK: ColorRef = { k: "fixed", hex: "#0b0f19" };
 export const FILL_WHITE: ColorRef = { k: "fixed", hex: "#ffffff" };
 
 /**
+ * The contrast a SOLID FILL owes WHITE, so that white is the ink the `ink` rule
+ * measures its way to.
+ *
+ * NOT A PREFERENCE FOR WHITE — a floor on the backdrop, applied by `fillRef` in
+ * `presets/base.ts` and expressed as a `sink` ColorRef. The candidate list is
+ * untouched; the fill moves under it and white wins on the numbers.
+ *
+ * 4.5 IS TWO THINGS AT ONCE AND BOTH ARE LOAD-BEARING. It is WCAG 2.2 SS1.4.3
+ * for the label itself, and it is above the ratio at which the two candidate
+ * inks are equally legible against the same fill:
+ *
+ *     crossover = 1.05 / sqrt(1.05 * (L(FILL_INK) + 0.05)) = 4.376
+ *
+ * Any colour satisfying a floor ABOVE that crossover necessarily scores higher
+ * with white than with `FILL_INK`, so the floor cannot be satisfied and still
+ * leave the ink dark. Below it the mechanism silently stops working — the fill
+ * darkens, the label stays dark, and nothing fails. `property.test.ts` derives
+ * the crossover from `FILL_INK` and asserts this constant exceeds it, rather
+ * than restating 4.376 as a number that would go stale the moment `FILL_INK`
+ * moves.
+ *
+ * MEASURED, on the two shipped seeds:
+ *
+ *     think      #37a3fe -> #007acd   white 4.50 resting / 5.10 hover
+ *     elemetrik  #6832ff -> #6832ff   white 6.02 resting — untouched, no-op
+ *
+ * The margin over the crossover is 0.124, which is thin and is the price of
+ * pinning the floor to the AA threshold rather than to a number chosen to feel
+ * safe. Raising it would darken the fill further for no accessibility gain.
+ */
+export const SOLID_WHITE_FLOOR = 4.5;
+
+/**
  * The fraction of the way a solid fill moves toward ink on hover.
  *
  * SET BY THE INK, NOT BY TASTE. `--<f>-on-solid` is one measured label that has

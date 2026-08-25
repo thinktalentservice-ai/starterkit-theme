@@ -140,6 +140,25 @@ function resolveRef(ref: ColorRef, scheme: SchemeName, ctx: Context): string {
       return liftCached(base, against, ref.min);
     }
 
+    case "sink": {
+      const base = resolveRef(ref.ref, scheme, ctx);
+      const against = resolveRef(ref.against, scheme, ctx);
+      /* Same search, opposite direction — see the `sink` ColorRef doc in
+         spec.ts. Shares `lift`'s cache because the two differ only by a walk
+         direction, and a second Map would double the eviction pressure on a
+         working set that is already bounded on purpose. The direction is part
+         of the key, so a base/against/min triple cannot collide across the two.
+
+         `ok: false` is not an error, and unlike `lift` it is also not
+         REPORTED: `warnings` carries only declared duties, and no duty covers
+         `--primary-solid` against white. So the bailout is deliberately
+         fail-open at runtime — a client seed must not be able to kill a page —
+         and the arbitrary-seed assertion in `fuzz.test.ts` is what makes it
+         non-silent, by requiring every random seed to clear the floor and take
+         the white label. Do not "fix" this by throwing. */
+      return sinkCached(base, against, ref.min);
+    }
+
     case "lighten": {
       /* Validated here rather than trusted, on the `darkChromaRetention`
          precedent: a `dl` of 0 or NaN produces a silent identity — the exact
@@ -185,8 +204,19 @@ function resolveRef(ref: ColorRef, scheme: SchemeName, ctx: Context): string {
 const LIFT_CACHE = new Map<string, string>();
 const LIFT_CACHE_MAX = 512;
 
-function liftCached(base: string, against: string, min: number, minChroma?: number): string {
-  const key = `${base}|${against}|${min}|${minChroma ?? ""}`;
+function fitCached(
+  base: string,
+  against: string,
+  min: number,
+  dir: "darken" | "lighten",
+  onFail: "extreme" | "input",
+  minChroma?: number,
+): string {
+  /* `dir` IS IN THE KEY, not appended to a second map. A darkening fit and a
+     lightening fit of the same (base, against, min) are different colours, and
+     the pair shares one bounded map so the eviction budget stays the budget
+     that was measured rather than twice it. */
+  const key = `${dir}|${onFail}|${base}|${against}|${min}|${minChroma ?? ""}`;
   const hit = LIFT_CACHE.get(key);
   if (hit !== undefined) return hit;
 
@@ -200,7 +230,8 @@ function liftCached(base: string, against: string, min: number, minChroma?: numb
      an unreachable target should render the lightest emittable colour and let
      the legibility gate REPORT it, rather than turn a contrast miss into a
      thrown page. */
-  const hex = fitContrast(base, [{ against, min }], "lighten", { minChroma }).hex;
+  const fit = fitContrast(base, [{ against, min }], dir, { minChroma });
+  const hex = fit.ok || onFail === "extreme" ? fit.hex : base;
 
   if (LIFT_CACHE.size >= LIFT_CACHE_MAX) {
     const oldest = LIFT_CACHE.keys().next();
@@ -209,6 +240,30 @@ function liftCached(base: string, against: string, min: number, minChroma?: numb
   LIFT_CACHE.set(key, hex);
   return hex;
 }
+
+/* The two directions, named — and they disagree about failure, on purpose.
+   `liftCached` keeps the behaviour every existing call site was written
+   against: `fitContrast` walks the whole ray and returns its LAST colour, so an
+   unreachable lighten target renders near-white. That is defensible where lift
+   is consumed — a gradient START STOP, where the lightest emittable colour is
+   still a colour in the right direction, and the legibility gate reports the
+   miss.
+
+   `sinkCached` returns the INPUT instead, because its consumer is `fillRef` —
+   an action-surface fill. The symmetric behaviour there is to render BLACK when
+   a floor cannot be met, which is not a brand colour, not a colour anybody
+   chose, and worse than the miss it is trying to fix. Same reasoning
+   `liftSeedToFloor` already applies to `darkFloor`, and the same reasoning
+   `rampAt`'s clamp is called out for.
+
+   With `SOLID_WHITE_FLOOR` at 4.5 against white this branch is unreachable —
+   black is 21:1, so every hue can satisfy it — and it is written anyway,
+   because "unreachable today" is a property of one constant, not of the rule. */
+const liftCached = (base: string, against: string, min: number, minChroma?: number): string =>
+  fitCached(base, against, min, "lighten", "extreme", minChroma);
+
+const sinkCached = (base: string, against: string, min: number): string =>
+  fitCached(base, against, min, "darken", "input");
 
 /**
  * A family's `darkFloor`, applied to its seed before the dark ramp is built.

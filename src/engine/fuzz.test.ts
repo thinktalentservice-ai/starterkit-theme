@@ -6,7 +6,9 @@
  * against colours no preset author ever picked or eyeballed.
  */
 import fc from "fast-check";
+import { contrastRatio } from "../color/contrast";
 import { PRESETS } from "../presets/index";
+import { SOLID_WHITE_FLOOR } from "./ladder";
 import { resolveBrand } from "./resolve";
 import type { FamilySpec, PresetSpec } from "./spec";
 
@@ -57,6 +59,46 @@ describe("fuzz — resolveBrand survives an arbitrary client seed", () => {
         for (const w of brand.warnings) {
           expect(w.ratio, `${preset.id} ${w.token}|${w.scheme} ratio vs min`).toBeLessThan(w.min);
           expect(w.message.length, `${preset.id} ${w.token}|${w.scheme} empty message`).toBeGreaterThan(0);
+        }
+
+        /* THE FILL FLOOR HOLDS FOR AN ARBITRARY CLIENT SEED, AND THIS IS THE
+           ONLY THING THAT SAYS SO. `sink` returns its INPUT when the target is
+           unreachable — deliberately, because painting an action surface black
+           is worse than the miss — but nothing reports that: `warnings` only
+           carries DECLARED duties and no duty is declared on `--primary-solid`
+           against white. So the bailout is a fail-OPEN path, and a fail-open
+           path with no assertion over it is indistinguishable from working.
+           Found by Codex review, not by the suite, which is exactly the gap.
+
+           Reachability is not the argument for leaving it unasserted. It is
+           true — every hue reaches ~21:1 against white on the way to black, so
+           4.5 is always attainable — but that is a property of ONE constant,
+           and this test is what turns "raise SOLID_WHITE_FLOOR past what a hue
+           can give" into a failure rather than a silently unfloored button.
+
+           The ink assertion is the stronger half: SOLID_WHITE_FLOOR sits above
+           the white-vs-FILL_INK crossover, so a satisfied floor forces white.
+           `#ffffff` for EVERY seed, on every preset, in both schemes. */
+        /* Scheme equality is the third leg: both of `fillRef`'s inputs are
+           scheme-invariant, so a floored fill that differs between schemes means
+           the sink started reading `ctx.ramps[scheme]` — the same silent split
+           `seedFillRef`'s own comment warns a `darkFloor` would introduce. */
+        expect(
+          brand.dark.get("--primary-solid"),
+          `${preset.id} seed ${seed}: --primary-solid is not scheme-invariant`,
+        ).toBe(brand.light.get("--primary-solid"));
+
+        for (const scheme of ["dark", "light"] as const) {
+          const map = scheme === "dark" ? brand.dark : brand.light;
+          const fill = map.get("--primary-solid")!;
+          expect(
+            contrastRatio(fill, "#ffffff"),
+            `${preset.id}|${scheme} seed ${seed}: --primary-solid ${fill} missed the fill floor`,
+          ).toBeGreaterThanOrEqual(SOLID_WHITE_FLOOR - 1e-9);
+          expect(
+            map.get("--primary-on-solid"),
+            `${preset.id}|${scheme} seed ${seed}: fill ${fill} did not force the white label`,
+          ).toBe("#ffffff");
         }
       }),
       { numRuns: 500 },

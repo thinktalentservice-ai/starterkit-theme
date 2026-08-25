@@ -213,6 +213,49 @@ export type ColorRef =
    *  This is a FLOOR on the fill, not a target: `fitContrast` walks nearest
    *  first, so a preset moves as little as it can and keeps its own hue. */
   | { k: "lift"; ref: ColorRef; against: ColorRef; min: number }
+  /** Darken `ref` in OKLCH until it clears `min` against `against`.
+   *
+   *  THE MIRROR OF `lift`, AND A SIBLING RATHER THAN A `dir` FIELD ON IT.
+   *  `lift` is consumed by `AVATAR_FROM` and carries a long rationale of its
+   *  own; widening it in place would put two behaviours behind one name and
+   *  make every existing call site re-readable only with the new flag in mind.
+   *
+   *  Returns `ref` UNTOUCHED when it already passes, so this is a byte-
+   *  identical no-op for any brand already dark enough — elemetrik's `#6832FF`
+   *  reads 6.02:1 against white and does not move. That is the same
+   *  no-op-by-construction property `lift` has, and it is what makes adding
+   *  this to the shared preset factory safe for a preset that does not need it.
+   *
+   *  Exists because A BRAND HUE HAS TWO JOBS AND ONLY ONE OF THEM CARES ABOUT
+   *  WHITE. As a mark, `#37A3FE` is the brand and its lightness is the point.
+   *  As the backdrop of a button LABEL it is a contrast problem: white on it is
+   *  2.68:1, so the `ink` rule correctly picks the dark candidate and the
+   *  primary action reads as a different component from every other brand's.
+   *  Splitting the fill from the mark lets the fill owe a floor the mark does
+   *  not, which is the same split `--<f>-text` vs `--<f>` already makes one
+   *  layer up.
+   *
+   *  This is a FLOOR, not a target: `fitContrast` walks nearest first, so a
+   *  seed moves as little as it can and keeps its own hue. `#37A3FE` lands on
+   *  `#007acd` at 4.50:1 — 0.008 OKLCH chroma spent, hue unmoved (248.5 ->
+   *  248.8).
+   *
+   *  IT DOES NOT FORCE THE INK, AND THAT DISTINCTION IS THE WHOLE DESIGN. The
+   *  `ink` rule's candidate list is untouched; white wins because the backdrop
+   *  moved under it. That holds by arithmetic rather than by luck: white and
+   *  `FILL_INK` are equally legible at 4.376:1, so any colour satisfying a
+   *  floor ABOVE that ratio necessarily has white as the measured winner. See
+   *  `SOLID_WHITE_FLOOR` in `ladder.ts`, whose test asserts that ordering
+   *  rather than restating the number.
+   *
+   *  ON AN UNREACHABLE TARGET IT RETURNS THE INPUT, WHICH IS NOT WHAT `lift`
+   *  DOES. `fitContrast` walks the whole ray and yields its last colour, so the
+   *  symmetric behaviour here would be to paint an action surface BLACK because
+   *  a floor could not be met — a colour nobody chose, replacing a contrast miss
+   *  with a brand miss. `lift` keeps the extreme because it feeds a gradient
+   *  start stop, where near-white is still a colour in the right direction. See
+   *  `sinkCached` in resolve.ts. */
+  | { k: "sink"; ref: ColorRef; against: ColorRef; min: number }
   /** Raise `ref` by a FIXED `dl` in OKLCH L, re-clamping chroma into sRGB.
    *
    *  The deliberate opposite of `lift`, and the pair only makes sense read

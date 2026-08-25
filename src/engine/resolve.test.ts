@@ -155,6 +155,73 @@ describe("resolveBrand — bidirectional, both-scheme duty search", () => {
     expect(brand.dark.get("--x-dark")).toBe(RAMP_HEXES[5 + xAdvance]);
   });
 
+  /* ── `sink` — the fill floor's ColorRef ────────────────────────────────── */
+
+  it("sink darkens until the target is met, and returns the input UNTOUCHED when it already passes", () => {
+    /* Both branches in one test because the no-op is the half that makes the
+       rule safe to put in the shared preset factory: elemetrik's seed already
+       clears the floor, so adding this was a byte-identical no-op there, by
+       construction rather than by luck. */
+    const preset = basePreset({
+      tokens: {
+        "--needs-it": {
+          kind: "solid",
+          ref: { k: "sink", ref: { k: "fixed", hex: "#37a3fe" }, against: { k: "fixed", hex: "#ffffff" }, min: 4.5 },
+        },
+        "--already-passes": {
+          kind: "solid",
+          ref: { k: "sink", ref: { k: "fixed", hex: "#6832ff" }, against: { k: "fixed", hex: "#ffffff" }, min: 4.5 },
+        },
+      },
+    });
+    const brand = resolveBrand(preset);
+
+    const moved = brand.dark.get("--needs-it")!;
+    expect(contrastRatio(moved, "#ffffff")).toBeGreaterThanOrEqual(4.5);
+    expect(hexToOklch(moved).l).toBeLessThan(hexToOklch("#37a3fe").l);
+    /* NEAREST-FIRST, not "as dark as possible": a floor that overshoots would
+       cost the brand hue for nothing. One 8-bit step is the whole tolerance. */
+    expect(contrastRatio(moved, "#ffffff")).toBeLessThan(4.6);
+
+    expect(brand.dark.get("--already-passes")).toBe("#6832ff");
+    /* Scheme-invariant, because both of its inputs are. */
+    expect(brand.light.get("--needs-it")).toBe(moved);
+    expect(brand.light.get("--already-passes")).toBe("#6832ff");
+  });
+
+  it("sink returns the input rather than black when the target is unreachable", () => {
+    /* Same policy `lift` states for its own bailout: nothing on a darkening ray
+       out-contrasts black against the same backdrop, so an impossible target
+       must render something a person chose — not walk the ray to its extreme
+       and emit a colour nobody picked, and not throw a page. 25:1 against white
+       is above black's own 21:1 ceiling, so it cannot be met by anything.
+
+       `warnings` STAYS EMPTY, AND THAT IS A FAIL-OPEN PATH, NOT A PASS. An
+       earlier version of this comment claimed the legibility gate would report
+       the miss. It would not: `warnings` carries only DECLARED duties and no
+       duty is declared on `--primary-solid` against white, so an unreachable
+       floor is silent. Codex review caught the contradiction between that claim
+       and this assertion.
+
+       Throwing was considered and rejected for the reason above — a client seed
+       must not be able to kill a page. What covers the gap instead is the
+       arbitrary-seed assertion in `fuzz.test.ts`, which requires every one of
+       500 random seeds to clear the floor and take the white label. That turns
+       "a hue the resolver handles wrongly" into a test failure rather than an
+       unfloored button nobody sees. */
+    const preset = basePreset({
+      tokens: {
+        "--impossible": {
+          kind: "solid",
+          ref: { k: "sink", ref: { k: "fixed", hex: "#37a3fe" }, against: { k: "fixed", hex: "#ffffff" }, min: 25 },
+        },
+      },
+    });
+    const brand = resolveBrand(preset);
+    expect(brand.dark.get("--impossible")).toBe("#37a3fe");
+    expect(brand.warnings).toEqual([]);
+  });
+
   it("bounds the search at the ramp's end instead of throwing on an impossible duty", () => {
     const duty: Duty = {
       token: "--x",

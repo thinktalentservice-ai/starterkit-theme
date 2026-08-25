@@ -24,11 +24,12 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { contrastRatio } from "../color/contrast";
-import { hexToOklch, hexToTriple } from "../color/oklch";
+import { contrastRatio, relativeLuminance } from "../color/contrast";
+import { hexToOklch, hexToTriple, oklchToHex } from "../color/oklch";
+import { clampChroma } from "../color/gamut";
 import { PRESETS } from "../presets/index";
 import { CHANNEL_PAIRS, ROOT_TOKEN_NAMES } from "../tokens/names";
-import { HOVER_MIX, ROLE_NAMES, type RoleName } from "./ladder";
+import { FILL_INK, HOVER_MIX, ROLE_NAMES, SOLID_WHITE_FLOOR, type RoleName } from "./ladder";
 import { measureAcknowledged, resolveBrand } from "./resolve";
 import type { PresetSpec } from "./spec";
 
@@ -112,19 +113,50 @@ const AVATAR_SHORTFALLS: Record<string, [number, string, number]> = {
   "elemetrik|light|--gradient-avatar": [3.48, "#8576ff", 0],
   "elemetrik|dark|--gradient-avatar-3": [3.42, "#8678ff", 0],
   "elemetrik|light|--gradient-avatar-3": [3.42, "#8678ff", 0],
-  /* `--gradient-primary-info` on think: `--primary` and `--info` are ~2 degrees
-     apart in hue (see the token's own comment in `sharedRules()`), so the sweep
-     is nearly flat and the ink — picked to cover the whole blend — troughs at
-     the END stop, `--info-solid` itself. Scheme-invariant for the same reason
-     every fill is: both stops are solids. */
-  "think|dark|--gradient-primary-info": [4.23, "#0078d4", 1],
-  "think|light|--gradient-primary-info": [4.23, "#0078d4", 1],
-  /* `--gradient-primary-accent-pink`: think's primary (`#0099FF`) and the fixed
-     `--accent-pink` (`#EE4480`) sit on opposite sides of the candidate inks'
-     crossover, so — unlike the two above — the trough is INSIDE the blend
-     (t=0.60), not at an endpoint. */
-  "think|dark|--gradient-primary-accent-pink": [4.3, "#8f66b3", 0.6],
-  "think|light|--gradient-primary-accent-pink": [4.3, "#8f66b3", 0.6],
+  /* THINK'S FOUR ENTRIES ARE ALL DOWNSTREAM OF ONE COLOUR: `--primary-solid` is
+     floored to `#007acd` by `fillRef`, where dark ink reads 4.25 and white
+     reads 4.50. Neither candidate has room, so any sweep with `#007acd` at one
+     end and a BRIGHTER colour at the other cannot clear 4.5:1 with a single
+     ink — the bright end forces the dark candidate, and the dark candidate
+     troughs on `#007acd` at 4.25.
+
+     THIS IS INTRINSIC TO THE FLOOR, NOT TO WHERE THE OTHER STOP COMES FROM.
+     Re-basing `AVATAR_FROM`/`AVATAR_3_FROM` onto `fillRef` instead of
+     `seedFillRef` was measured and yields the same 4.25 (start stops `#278ee2`
+     and `#3ea0f6`), because the trough is at the END. The only sweep that
+     escapes is `--gradient-avatar-2`, whose other stop is the hover fill and is
+     therefore darker still — it flips to white and passes at 4.50.
+
+     WHAT CHANGED, HONESTLY. Before the floor, think's `--gradient-avatar` was
+     FLAT (`#0099ff` twice) and legible at 6.38:1, and `-3` swept to the same
+     hex at 6.38. They are real sweeps now, at 4.25. Recorded rather than
+     designed away: the alternatives are ending the avatar sweeps on a token
+     that does not exist (the raw seed is no longer `--primary-solid`) or
+     flattening them again, and both are a bigger design change than the button
+     colour that was actually asked for. Both still beat elemetrik's shipped
+     3.48/3.42 on the same tokens. */
+  "think|dark|--gradient-avatar": [4.25, "#007acd", 1],
+  "think|light|--gradient-avatar": [4.25, "#007acd", 1],
+  "think|dark|--gradient-avatar-3": [4.25, "#007acd", 1],
+  "think|light|--gradient-avatar-3": [4.25, "#007acd", 1],
+  /* `--gradient-primary-info` on think: `--primary-solid` and `--info-solid`
+     are ~2 degrees apart in hue (see the token's own comment in
+     `sharedRules()`), so the sweep is nearly flat. The floor darkened the START
+     stop past the ink crossover, so the ink flipped to white and the trough
+     moved with it — from the `--info-solid` end at 4.23 to just inside the
+     blend at 4.48. Better by 0.25 and still short by 0.02; recorded because a
+     near miss that nobody can see is exactly the kind that gets re-broken. */
+  "think|dark|--gradient-primary-info": [4.48, "#007acf", 0.25],
+  "think|light|--gradient-primary-info": [4.48, "#007acf", 0.25],
+  /* `--gradient-primary-accent-pink` on think REGRESSED, 4.30 -> 3.64, and this
+     is the one place the floor makes something measurably worse. The old ink
+     was dark and troughed mid-blend at `#8f66b3`; with the start stop darkened,
+     white now wins the blend and troughs on the pink END stop instead. That is
+     the same 3.64 at the same stop elemetrik has always shipped for this token
+     — think has converged onto elemetrik's number rather than found a new
+     failure — but it is a loss and is written down as one. */
+  "think|dark|--gradient-primary-accent-pink": [3.64, "#ee4480", 1],
+  "think|light|--gradient-primary-accent-pink": [3.64, "#ee4480", 1],
   /* elemetrik's own `accent` IS `#EE4480` (see `elemetrik.ts`'s header on the
      intended `accent == accent-pink` equality), so this sweep is primary
      (`#6832FF`) -> accent-pink and troughs at the END stop, same shape as the
@@ -232,7 +264,7 @@ describe("property — invariants across every preset, both schemes", () => {
     expect(bad).toEqual([]);
   });
 
-  it("6. --<f>-solid is the family's exact seed, in BOTH schemes", () => {
+  it("6. --<f>-solid is the family's exact seed in BOTH schemes — every family but `primary`, which is floored", () => {
     /* The fill is the brand colour, not an approximation of it. The previous
        engine could not promise this: `darkFloor` lifted the SEED to rescue a
        rung that had to carry the text duty, which moved the brand hue itself and
@@ -240,14 +272,64 @@ describe("property — invariants across every preset, both schemes", () => {
        Splitting text from mark removes the need for either — and this assertion
        is what stops a `darkFloor` being reintroduced without anyone noticing
        that `{ k: "ramp", shift: 0 }` silently stops being scheme-invariant when
-       one is (it reads `ctx.ramps[scheme]`). */
+       one is (it reads `ctx.ramps[scheme]`).
+
+       `primary` IS THE ONE EXCEPTION AND ITS SCOPE IS THE ASSERTION. `fillRef`
+       floors it against white so the `ink` rule measures its way to a white
+       label; every other family keeps the exact seed because a floor against
+       white is the wrong question for a fill that correctly carries a DARK
+       label. Measured, if the floor were widened to all nine: `--accent-solid`
+       `#b3d335` -> `#6a7f00` (dE00 25.2, lime to olive), `--warning-solid`
+       `#f59e0b` -> `#a76900` (dE00 19.8, amber to brown), plus success, danger,
+       accent-green and accent-pink. Widening it is therefore a failure here,
+       not a palette nobody re-measured. */
     const bad: string[] = [];
     for (const { id, preset, scheme, map, f } of cells()) {
       const seed = preset.families[f]!.seed;
       const solid = map.get(`--${f}-solid`)!;
-      if (solid !== seed) bad.push(`${id}|${scheme}|--${f}-solid ${solid} != seed ${seed}`);
+      if (f !== "primary") {
+        if (solid !== seed) bad.push(`${id}|${scheme}|--${f}-solid ${solid} != seed ${seed} — the floor must stay scoped to primary`);
+        continue;
+      }
+      /* The floor is a FLOOR: it may only ever darken, it must land at or above
+         SOLID_WHITE_FLOOR against white, and it must return the seed UNTOUCHED
+         when the seed already clears it. elemetrik exercises the no-op branch
+         (#6832ff at 6.02) and think the moving one (#37a3fe -> #007acd). */
+      const onWhite = contrastRatio(solid, "#ffffff");
+      if (onWhite + 1e-9 < SOLID_WHITE_FLOOR) {
+        bad.push(`${id}|${scheme}|--primary-solid ${solid} reads ${onWhite.toFixed(2)} on white, below the ${SOLID_WHITE_FLOOR} floor`);
+      }
+      const seedOnWhite = contrastRatio(seed, "#ffffff");
+      if (seedOnWhite >= SOLID_WHITE_FLOOR) {
+        if (solid !== seed) bad.push(`${id}|${scheme}|--primary-solid ${solid} moved off a seed (${seed}) that already cleared the floor — sink must no-op`);
+      } else if (hexToOklch(solid).l >= hexToOklch(seed).l) {
+        bad.push(`${id}|${scheme}|--primary-solid ${solid} is not darker than seed ${seed} — a floor may only darken`);
+      }
     }
     expect(bad).toEqual([]);
+  });
+
+  it("6b. the fill floor sits ABOVE the ink crossover, so white cannot be floored-to and still lose", () => {
+    /* THE MECHANISM'S CORRECTNESS CONDITION, DERIVED RATHER THAN RESTATED. The
+       `ink` rule is untouched by the floor — white wins because the backdrop
+       moved under it — and that only holds while SOLID_WHITE_FLOOR exceeds the
+       ratio at which the two candidate inks are equally legible against the
+       same fill. Below that crossover the fill would darken, the label would
+       stay dark, and NOTHING would fail: no duty, no gate, no screenshot. The
+       crossover is computed from FILL_INK here, so moving FILL_INK re-derives it
+       instead of leaving a stale number in a comment. */
+    const ink = (FILL_INK as { k: "fixed"; hex: string }).hex;
+    const crossover = 1.05 / Math.sqrt(1.05 * (relativeLuminance(ink) + 0.05));
+    expect(SOLID_WHITE_FLOOR).toBeGreaterThan(crossover);
+
+    /* And the consequence, on the shipped presets: every primary fill takes the
+       white label. */
+    for (const { id, brand } of RESOLVED) {
+      for (const scheme of SCHEMES) {
+        const map = scheme === "dark" ? brand.dark : brand.light;
+        expect(map.get("--primary-on-solid"), `${id}|${scheme}`).toBe("#ffffff");
+      }
+    }
   });
 
   it("7. --<f>-solid-hover is scheme-invariant, distinct from the fill, and darker", () => {
@@ -423,12 +505,49 @@ describe("property — invariants across every preset, both schemes", () => {
       }
     }
     expect(bad).toEqual([]);
-    /* The documented flat case, asserted so it stays a known cost rather than
-       becoming a surprise: think's seed clears AVATAR_FROM's floor, so
-       `--gradient-avatar` IS flat there. If this ever stops being true the floor
-       or the seed moved, and the comment on AVATAR_FROM is out of date. */
+    /* AVATAR_FROM IS STILL A NO-OP ON THINK, AND IS NO LONGER `--primary-solid`.
+       Those are two claims and both need asserting, because the old test folded
+       them into one equality that the fill floor deliberately breaks.
+
+       think's seed clears AVATAR_FROM's 5.5 floor (7.14:1), so the lift does not
+       fire and the start stop IS the seed — that half is unchanged. What changed
+       is that the seed is no longer what `--primary-solid` renders: `fillRef`
+       darkens the fill to `#007acd` while the avatar keeps the `#37A3FE` mark.
+       Asserting the old equality would now be asserting that the split did not
+       happen, so it is replaced by its two halves — including an explicit
+       inequality, so re-routing the avatars through `fillRef` fails here rather
+       than silently costing the sweep (measured: start stop `#278ee2`, a colour
+       nobody chose, arrived at by darkening and then re-lightening). */
     const think = RESOLVED.find((r) => r.id === "think")!;
-    expect(think.brand.dark.get("--gradient-avatar-from")).toBe(think.brand.dark.get("--primary-solid"));
+    for (const scheme of SCHEMES) {
+      const map = scheme === "dark" ? think.brand.dark : think.brand.light;
+      expect(
+        map.get("--gradient-avatar-from"),
+        `think (${scheme}): AVATAR_FROM must no-op onto the seed`,
+      ).toBe(think.preset.families.primary!.seed);
+      expect(
+        map.get("--gradient-avatar-from"),
+        `think (${scheme}): the avatar mark must NOT follow the floored fill`,
+      ).not.toBe(map.get("--primary-solid"));
+    }
+
+    /* AVATAR_3_FROM IS PINNED TO THE SEED TOO, and needs its own assertion
+       because it takes the `lighten` branch on every seed and so can never be
+       caught by an equality with the seed itself. Recomputing `seed + 0.12L`
+       here fails if the ref is ever re-based onto `fillRef` (which yields
+       `#3ea0f6`, dE00 9.5 from the value below) — the floor must not reach a
+       gradient that carries no label. */
+    for (const { id, preset, brand } of RESOLVED) {
+      const seed = hexToOklch(preset.families.primary!.seed);
+      const expected = oklchToHex(clampChroma({ l: seed.l + 0.12, c: seed.c, h: seed.h }));
+      for (const scheme of SCHEMES) {
+        const map = scheme === "dark" ? brand.dark : brand.light;
+        expect(
+          map.get("--gradient-avatar-3-from"),
+          `${id} (${scheme}): avatar-3 start stop must be lightened from the SEED, not the floored fill`,
+        ).toBe(expected);
+      }
+    }
 
     /* THE TWO PRESETS CANNOT PROVE "every seed" AND MUST NOT BE READ AS DOING
        SO. Both sit mid-range, so both take the lightening branch; the branch

@@ -25,6 +25,7 @@ import {
   ROLE_LIGHT_SHIFT,
   ROLE_NAMES,
   ROLE_SLOTS,
+  SOLID_WHITE_FLOOR,
   type RoleName,
 } from "../engine/ladder";
 import { normalizeHex } from "../color/oklch";
@@ -176,12 +177,51 @@ const BTN_SHADOW = {
  *  and is asserted: the moment any family gains a floor, a `ramp` ref stops
  *  being scheme-invariant (it reads `ctx.ramps[scheme]`) and this would silently
  *  become two different fills. Use `{ k: "slot", from: "dark" }` instead if that
- *  day comes — a slot ref pins the SCHEME, which is the property wanted here. */
-const solidRef = (f: RoleName): ColorRef =>
+ *  day comes — a slot ref pins the SCHEME, which is the property wanted here.
+ *
+ *  USED BY THE AVATAR GRADIENTS, NOT BY THE BUTTON FILL — see `fillRef`. */
+const seedFillRef = (f: RoleName): ColorRef =>
   ({ k: "ramp", family: f, index: ROLE_SLOTS.main, shift: 0 });
 
+/**
+ * The colour a LABEL sits on: the seed hex, floored for `primary` so that white
+ * is the ink the measurement arrives at.
+ *
+ * THE SPLIT FROM `seedFillRef` IS THE POINT, AND IT IS SCOPED TO ONE FAMILY ON
+ * PURPOSE. A brand hue as a mark wants its own lightness; the same hue under a
+ * button label is a contrast problem. think's `#37A3FE` reads 2.68:1 against
+ * white, so the `ink` rule correctly picks the dark candidate and the primary
+ * action ends up looking like a different component from elemetrik's. Flooring
+ * the fill — and only the fill — lets the two jobs disagree.
+ *
+ * WHY NOT EVERY FAMILY. Measured, on the shipped presets: the same floor over
+ * all nine turns `--accent-solid` `#b3d335` into `#6a7f00` (dE00 25.2, lime to
+ * olive) and `--warning-solid` `#f59e0b` into `#a76900` (dE00 19.8, amber to
+ * brown), plus success, danger, accent-green and accent-pink. Those families
+ * carry a DARK label correctly; a floor against white buys them nothing and
+ * costs them the hue. `property.test.ts` asserts the scope — every family but
+ * `primary` must equal its raw `seedFillRef` rung — so "generalising" this is a
+ * test failure rather than a palette nobody re-measured.
+ *
+ * WHY NOT ALSO THE AVATARS. `AVATAR_FROM` and `AVATAR_3_FROM` read
+ * `seedFillRef` and must keep doing so. Routed through here instead,
+ * `AVATAR_FROM`'s own `lift` fires against the now-darker fill and lands on
+ * `#278ee2` — a colour nobody chose, arrived at by darkening and then
+ * re-lightening — and `AVATAR_3_FROM` moves `#80c0ff` to `#3ea0f6` (dE00 9.5).
+ * An avatar gradient carries no label, so the floor is pure collateral damage
+ * there. Also asserted.
+ *
+ * STILL SCHEME-INVARIANT. Both inputs are: `seedFillRef` by the argument above,
+ * and `FILL_WHITE` is `{ k: "fixed" }`. So `--primary-solid` is one hex in both
+ * schemes exactly as before — verified, not assumed.
+ */
+const fillRef = (f: RoleName): ColorRef =>
+  f === "primary"
+    ? { k: "sink", ref: seedFillRef(f), against: FILL_WHITE, min: SOLID_WHITE_FLOOR }
+    : seedFillRef(f);
+
 const hoverRef = (f: RoleName): ColorRef =>
-  ({ k: "mix", a: solidRef(f), b: FILL_INK, t: HOVER_MIX });
+  ({ k: "mix", a: fillRef(f), b: FILL_INK, t: HOVER_MIX });
 
 /** The family's scheme-following mark — what `--<f>` itself resolves to. */
 const markRef = (f: RoleName): ColorRef => ({ k: "slot", family: f, token: `--${f}` });
@@ -199,21 +239,27 @@ const markRef = (f: RoleName): ColorRef => ({ k: "slot", family: f, token: `--${
  */
 function roleRules(f: RoleName): Record<string, TokenRule> {
   return {
-    /* THE FILL. Scheme-invariant and never darkened for contrast: a brand hue
-       under text is not a brand hue as text, and solving it for the stricter job
-       is what turned a lime brand olive on light-mode primary buttons. The label
-       on it is measured (below) rather than assumed, so the fill never has to
-       move to make the label legal. */
-    [`--${f}-solid`]: { kind: "solid", ref: solidRef(f) },
+    /* THE FILL. Scheme-invariant, and darkened for contrast in exactly one
+       family — see `fillRef` for why `primary` and why not the other eight. The
+       original rule here was "never darkened", on the evidence that solving a
+       brand hue for the stricter job turned a lime brand olive on light-mode
+       primary buttons. That evidence still holds and is what scopes the floor;
+       it does not hold for a blue whose only failing job is carrying white. */
+    [`--${f}-solid`]: { kind: "solid", ref: fillRef(f) },
     [`--${f}-solid-hover`]: { kind: "solid", ref: hoverRef(f) },
 
     /* THE LABEL, chosen by measurement over BOTH fill states — see the `ink`
        rule in spec.ts and `HOVER_MIX` in ladder.ts. `over` reuses the same ref
        objects the fills are defined from rather than restating them, so the ink
-       is scored against the colour the fill actually renders. */
+       is scored against the colour the fill actually renders.
+
+       THE CANDIDATE LIST IS UNCHANGED BY THE FLOOR, and that is the whole
+       design: white is not preferred here, it wins because `fillRef` moved the
+       backdrop under it. Pinning `[FILL_WHITE]` for `primary` would ship 2.68:1
+       on think and would need an acknowledgement in two legibility gates. */
     [`--${f}-on-solid`]: {
       kind: "ink",
-      over: [solidRef(f), hoverRef(f)],
+      over: [fillRef(f), hoverRef(f)],
       candidates: [FILL_INK, FILL_WHITE],
     },
 
@@ -235,7 +281,14 @@ function roleRules(f: RoleName): Record<string, TokenRule> {
     /* Brand depth. `scaled`, so `intensity: 0` flattens every one of them at
        once and the neutral drop-shadows survive. */
     [`--glow-${f}`]: { kind: "shadow", ref: markRef(f), layers: GLOW_ALPHAS, scaled: true },
-    [`--shadow-btn-${f}`]: { kind: "shadow", ref: solidRef(f), layers: BTN_SHADOW, scaled: true },
+    /* SHADOWS READ THE MARK, FILLS READ THE FILL, and this line is where that
+       split is easiest to get wrong. `seedFillRef`, not `fillRef`: the halo
+       under a primary button now renders a lighter blue than the button itself,
+       which is what a glow is supposed to look like and is also the existing
+       design — `--glow-${f}` one line up is mark-based too. Routing it through
+       `fillRef` would darken the primary halo alone, a restyle nobody asked
+       for, justified only by the token's name. */
+    [`--shadow-btn-${f}`]: { kind: "shadow", ref: seedFillRef(f), layers: BTN_SHADOW, scaled: true },
 
     /* The solid gradient for this tone — the resting fill into the hovered one,
        so a gradient button and a flat button are the same colour family and a
@@ -296,7 +349,7 @@ function roleRules(f: RoleName): Record<string, TokenRule> {
  */
 const AVATAR_FROM: ColorRef = {
   k: "lift",
-  ref: solidRef("primary"),
+  ref: seedFillRef("primary"),
   against: FILL_INK,
   min: 5.5,
 };
@@ -324,7 +377,7 @@ const AVATAR_FROM: ColorRef = {
  * The guaranteed sweep and the guaranteed shortfall are the same property seen
  * from two sides; a variant cannot have one without the other.
  */
-const AVATAR_3_FROM: ColorRef = { k: "lighten", ref: solidRef("primary"), dl: 0.12 };
+const AVATAR_3_FROM: ColorRef = { k: "lighten", ref: seedFillRef("primary"), dl: 0.12 };
 
 /** A gradient, sampled end to end, for an `ink` rule to score against.
  *
@@ -372,8 +425,14 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
        hue with the scheme reads as a different affordance, and this is the token
        keyboard users hunt for first. It reads the ramp index directly rather
        than `--primary`, so a light-scheme contrast search on the mark cannot
-       drag the ring somewhere darker than the thing it is outlining. */
-    "--ring": { kind: "alpha", ref: solidRef("primary"), a: { dark: 0.4, light: 0.3 } },
+       drag the ring somewhere darker than the thing it is outlining.
+
+       `seedFillRef`, deliberately, now that the primary FILL is floored below
+       its seed: the ring stays the brand's own `#37A3FE` and is therefore
+       lighter than the `#007acd` button it outlines, which is exactly the
+       property the paragraph above asks for. `fillRef` would put the ring at
+       the same colour as the thing it rings. */
+    "--ring": { kind: "alpha", ref: seedFillRef("primary"), a: { dark: 0.4, light: 0.3 } },
 
     /* Half brand glow, half neutral drop. The drop is NOT scaled by intensity:
        it is a depth cue, and a flat-corporate brand still needs to know which
@@ -460,7 +519,7 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
     ),
     "--gradient-avatar-ink": {
       kind: "ink",
-      over: sweepSamples(AVATAR_FROM, solidRef("primary")),
+      over: sweepSamples(AVATAR_FROM, fillRef("primary")),
       candidates: [FILL_INK, FILL_WHITE],
     },
 
@@ -487,7 +546,7 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
     ),
     "--gradient-avatar-2-ink": {
       kind: "ink",
-      over: sweepSamples(solidRef("primary"), hoverRef("primary")),
+      over: sweepSamples(fillRef("primary"), hoverRef("primary")),
       candidates: [FILL_INK, FILL_WHITE],
     },
 
@@ -497,7 +556,7 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
     ),
     "--gradient-avatar-3-ink": {
       kind: "ink",
-      over: sweepSamples(AVATAR_3_FROM, solidRef("primary")),
+      over: sweepSamples(AVATAR_3_FROM, fillRef("primary")),
       candidates: [FILL_INK, FILL_WHITE],
     },
     "--gradient-progress": literal(
@@ -531,7 +590,7 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
     ),
     "--gradient-primary-info-ink": {
       kind: "ink",
-      over: sweepSamples(solidRef("primary"), solidRef("info")),
+      over: sweepSamples(fillRef("primary"), fillRef("info")),
       candidates: [FILL_INK, FILL_WHITE],
     },
     "--gradient-primary-accent-pink": literal(
@@ -539,7 +598,7 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
     ),
     "--gradient-primary-accent-pink-ink": {
       kind: "ink",
-      over: sweepSamples(solidRef("primary"), solidRef("accent-pink")),
+      over: sweepSamples(fillRef("primary"), fillRef("accent-pink")),
       candidates: [FILL_INK, FILL_WHITE],
     },
 
