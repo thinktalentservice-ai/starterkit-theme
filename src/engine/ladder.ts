@@ -171,9 +171,12 @@ export const HOVER_MIX = 0.08;
  *                      to be backed by `--accent`, which collided the brand's own
  *                      accent hue with a categorical status colour that has to
  *                      read the same regardless of which brand is active. `info`
- *                      is now its own family, with the same hex (`#0078D4`) in
+ *                      is now its own family, with the same hex (`#0058D4`) in
  *                      both presets — the one deliberately NON-brand-varying role
- *                      besides the status palette.
+ *                      besides the status palette. It was `#0078D4` until that
+ *                      azure landed dE00 1.48 from think's floored primary fill;
+ *                      being preset-invariant, it had to move for BOTH presets to
+ *                      fix one. See think.ts and assertion 17.
  *   `accent-green`  / `accent-pink` — fixed categorical accents, identical in
  *                      every preset (`#B3D335` / `#EE4480`), for call sites that
  *                      need a specific green or pink regardless of brand — a

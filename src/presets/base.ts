@@ -577,14 +577,20 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
        `--gradient-primary-accent-pink` is always "toward the fixed pink",
        regardless of what a given preset's own `accent` happens to be.
 
-       MEASURED, per preset: on `think`, `--primary` (`#0099FF`) and `--info`
-       (`#0078D4`) are ~2 degrees apart in OKLCH hue — `--gradient-primary-info`
-       is a near-tonal sweep, barely a gradient at all. On `elemetrik`,
-       `--primary` (`#6832FF`) is violet and `--info` stays the same blue, so the
-       same token is a full violet -> blue sweep. Neither is a defect; a
-       fixed-hue role blended against two different brand primaries is SUPPOSED
-       to read differently per preset — that is the whole point of a role being
-       brand-independent while primary is not. */
+       MEASURED, per preset: on `think`, `--primary` (`#37A3FE`) and `--info`
+       (`#0058D4`) are ~10 degrees apart in OKLCH hue — a short sweep, but a real
+       one. On `elemetrik`, `--primary` (`#6832FF`) is violet and `--info` is the
+       same blue, so the same token is a 26-degree violet -> blue sweep. Neither
+       is a defect; a fixed-hue role blended against two different brand
+       primaries is SUPPOSED to read differently per preset — that is the whole
+       point of a role being brand-independent while primary is not.
+
+       IT USED TO BE ~2 DEGREES AND THAT WAS THE SYMPTOM, not the design. With
+       `info` at `#0078D4` this sweep was near-tonal — barely a gradient — for
+       the same reason the two SOLIDS were indistinguishable (dE00 1.48), and its
+       ink troughed inside the blend at 4.48, short of AA by 0.02 and recorded as
+       a shortfall. Rotating `info` to `#0058D4` opened the sweep and the trough
+       cleared at 4.50, so that ledger entry is gone. */
     "--gradient-primary-info": literal(
       "linear-gradient(135deg, var(--primary-solid), var(--info-solid))",
     ),

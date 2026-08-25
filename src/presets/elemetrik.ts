@@ -67,8 +67,14 @@ export const ELEMETRIK: PresetSpec = makePreset({
     warning: "#F59E0B",
     danger: "#F43F5E",
     /** Fixed categorical "informational" role — same hex as think's. Not a
-     *  brand hue; see `ROLE_NAMES` in `engine/ladder.ts`. */
-    info: "#0078D4",
+     *  brand hue; see `ROLE_NAMES` in `engine/ladder.ts`.
+     *
+     *  MOVED FOR THINK'S SAKE, NOT FOR ELEMETRIK'S, and that is the price of a
+     *  preset-invariant role. `#0078D4` collided with think's floored primary
+     *  fill at dE00 1.48; against elemetrik's violet it measured 24.29 and was
+     *  never in any trouble here. The role is defined as one hex in every
+     *  preset, so fixing it for one fixes it for both — see think.ts. */
+    info: "#0058D4",
     /** Fixed categorical accent — same hex as think's, and as think's own
      *  `accent`. A genuinely new colour for elemetrik: nothing else in this
      *  preset is this green. */

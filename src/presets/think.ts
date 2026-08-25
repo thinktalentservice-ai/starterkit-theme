@@ -87,8 +87,17 @@ export const THINK: PresetSpec = makePreset({
     warning: "#F59E0B",
     danger: "#F43F5E",
     /** Fixed categorical "informational" role — same hex as elemetrik's. Not a
-     *  brand hue; see `ROLE_NAMES` in `engine/ladder.ts`. */
-    info: "#0078D4",
+     *  brand hue; see `ROLE_NAMES` in `engine/ladder.ts`.
+     *
+     *  ROYAL, NOT AZURE, AND THE ROTATION IS THE WHOLE POINT. This was `#0078D4`
+     *  and it collided with THIS preset's primary button: `fillRef` floors
+     *  `--primary-solid` to `#007acd`, and `#0078D4` is what a floored azure
+     *  converges on, so the two fills measured dE00 1.48 (hover 1.09) — under
+     *  the ~2.3 just-noticeable difference, i.e. one colour. Rotating the hue
+     *  from 251 to 260 at the same lightness takes the pair to 12.99 and lifts
+     *  the palette's tightest cross-role pair from 1.09 to 6.79. See
+     *  assertion 17 in `property.test.ts`, which is what now measures this. */
+    info: "#0058D4",
     /** Fixed categorical accent — same hex as elemetrik's, and as think's own
      *  `accent` above (intended equality, see header). */
     "accent-green": "#B3D335",
