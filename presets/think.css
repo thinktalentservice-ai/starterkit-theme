@@ -145,7 +145,7 @@
   --gradient-accent-pink: linear-gradient(135deg, var(--accent-pink-solid), var(--accent-pink-solid-hover));
   --gradient-avatar-from: #37a3fe;
   --gradient-avatar: linear-gradient(135deg, var(--gradient-avatar-from), var(--primary-solid));
-  --gradient-avatar-ink: #0b0f19;
+  --gradient-avatar-ink: #ffffff;
   --gradient-avatar-2: linear-gradient(135deg, var(--primary-solid), var(--primary-solid-hover));
   --gradient-avatar-2-ink: #ffffff;
   --gradient-avatar-3-from: #92c9ff;
@@ -197,7 +197,7 @@
   --fg1-channel: 240 242 255;
   --fg2-channel: 139 147 181;
   --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-heading: 'Outfit', system-ui, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, monospace;
   --status-closed: #475569;
   --status-closed-channel: 71 85 105;

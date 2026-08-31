@@ -114,7 +114,14 @@ const AVATAR_SHORTFALLS: Record<string, [number, string, number]> = {
   "elemetrik|light|--gradient-avatar": [3.48, "#8576ff", 0],
   "elemetrik|dark|--gradient-avatar-3": [3.42, "#8678ff", 0],
   "elemetrik|light|--gradient-avatar-3": [3.42, "#8678ff", 0],
-  /* THINK'S FOUR ENTRIES ARE ALL DOWNSTREAM OF ONE COLOUR: `--primary-solid` is
+  /* THINK'S `--gradient-avatar` NO LONGER SCORES ITS INK — `--gradient-avatar-ink`
+     is PINNED to white in `base.ts` so the avatar mark reads the same on both
+     brands, and this row records what pinning costs: 2.68 at the START stop
+     (`#37a3fe`, the lightened seed), down from the 4.25 the scored dark ink
+     reached at the END. Worse than what shipped, on purpose and by request; the
+     `-3` row below is unchanged because it has its own scored ink token.
+
+     THINK'S REMAINING ENTRIES ARE DOWNSTREAM OF ONE COLOUR: `--primary-solid` is
      floored to `#007acd` by `fillRef`, where dark ink reads 4.25 and white
      reads 4.50. Neither candidate has room, so any sweep with `#007acd` at one
      end and a BRIGHTER colour at the other cannot clear 4.5:1 with a single
@@ -136,8 +143,8 @@ const AVATAR_SHORTFALLS: Record<string, [number, string, number]> = {
      flattening them again, and both are a bigger design change than the button
      colour that was actually asked for. Both still beat elemetrik's shipped
      3.48/3.42 on the same tokens. */
-  "think|dark|--gradient-avatar": [4.25, "#007acd", 1],
-  "think|light|--gradient-avatar": [4.25, "#007acd", 1],
+  "think|dark|--gradient-avatar": [2.68, "#37a3fe", 0],
+  "think|light|--gradient-avatar": [2.68, "#37a3fe", 0],
   "think|dark|--gradient-avatar-3": [4.25, "#007acd", 1],
   "think|light|--gradient-avatar-3": [4.25, "#007acd", 1],
   /* THINK'S `--gradient-primary-info` HAS NO ENTRY ANY MORE, and its deletion is

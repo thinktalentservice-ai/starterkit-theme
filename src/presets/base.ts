@@ -56,7 +56,7 @@ export type PresetConfig = {
 };
 
 const DEFAULT_FONTS = {
-  heading: "'Outfit', system-ui, sans-serif",
+  heading: "'Plus Jakarta Sans', system-ui, sans-serif",
   body: "'Plus Jakarta Sans', system-ui, sans-serif",
   mono: "'Geist Mono', ui-monospace, monospace",
 } as const;
@@ -517,10 +517,20 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
     "--gradient-avatar": literal(
       "linear-gradient(135deg, var(--gradient-avatar-from), var(--primary-solid))",
     ),
+    /* PINNED TO WHITE, not scored. Every other ink token here picks the better
+       of dark/white on the sweep's worst point; this one is told the answer.
+       The avatar mark is brand furniture that ships next to white-on-primary
+       buttons and a white wordmark, and a dark glyph on one preset and a white
+       glyph on the other reads as a bug in the mark rather than as a contrast
+       decision. Scoring gave think dark ink at 4.25 and elemetrik white at
+       3.48 — neither clears AA, so the choice was never between "legible" and
+       "not", only between two sub-AA inks that disagreed across brands.
+       Recorded in `AVATAR_SHORTFALLS`, which measures what this actually
+       ships. Reach for `--gradient-avatar-2` if the avatar carries initials. */
     "--gradient-avatar-ink": {
       kind: "ink",
       over: sweepSamples(AVATAR_FROM, fillRef("primary")),
-      candidates: [FILL_INK, FILL_WHITE],
+      candidates: [FILL_WHITE],
     },
 
     /* Both stops are the primary family's own solid pair, so this token's value

@@ -267,26 +267,26 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
     typography: {
       fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
       h1: {
-        fontFamily: "'Outfit', system-ui, sans-serif",
+        fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
         fontWeight: 800,
         fontSize: "2.125rem",
         letterSpacing: "-0.5px",
       },
       h2: {
-        fontFamily: "'Outfit', system-ui, sans-serif",
+        fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
         fontWeight: 800,
         fontSize: "1.75rem",
         letterSpacing: "-0.4px",
       },
       h3: {
-        fontFamily: "'Outfit', system-ui, sans-serif",
+        fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
         fontWeight: 700,
         fontSize: "1.375rem",
         letterSpacing: "-0.3px",
       },
-      h4: { fontFamily: "'Outfit', system-ui, sans-serif", fontWeight: 700, fontSize: "1.125rem" },
-      h5: { fontFamily: "'Outfit', system-ui, sans-serif", fontWeight: 600, fontSize: "1rem" },
-      h6: { fontFamily: "'Outfit', system-ui, sans-serif", fontWeight: 600, fontSize: "0.875rem" },
+      h4: { fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 700, fontSize: "1.125rem" },
+      h5: { fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 600, fontSize: "1rem" },
+      h6: { fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", fontWeight: 600, fontSize: "0.875rem" },
       body1: { fontSize: "0.9375rem", lineHeight: 1.6 },
       body2: { fontSize: "0.8125rem" },
       caption: {

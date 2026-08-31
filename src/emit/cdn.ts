@@ -156,6 +156,11 @@ export function buildCdnBrandSheet(preset: PresetSpec, options: CdnBrandSheetOpt
  *  not a defect in this file. */
 export function buildFontsSheet(): string {
   const families = [
+    /* Outfit is no longer referenced by any shipped preset — `--font-heading`
+       is Plus Jakarta Sans now, same as the body face. Kept in the whitelist
+       so consumers who set their own heading face to Outfit against this
+       shared sheet do not lose it; @import of an unused family costs one CSS
+       response and downloads no font files. */
     "family=Outfit:wght@400;500;600;700;800",
     "family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400",
     "family=Inter+Tight:wght@400;500;600;700;800",
