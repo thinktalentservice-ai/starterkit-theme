@@ -87,4 +87,75 @@ describe("createStarterkitTheme", () => {
     expect(filled.backgroundColor).toBe("var(--success)");
     expect(filled.color).toBe("var(--success-on-solid)");
   });
+
+  describe("solid-fill overrides (MuiButton / MuiFab / MuiChip / MuiBadge)", () => {
+    // These read ownerState; the earlier containedPrimary keys were inert on MUI v9.
+    const so = theme.components as any;
+    const call = (slot: any, ownerState: Record<string, unknown>) => slot({ ownerState, theme });
+
+    it("contained error button fills with the danger SOLID rung and its measured ink", () => {
+      const r = call(so.MuiButton.styleOverrides.root, { variant: "contained", color: "error" });
+      expect(r.backgroundColor).toBe("var(--danger-solid)");
+      expect(r.color).toBe("var(--danger-on-solid)");
+      expect(r["&:hover"].backgroundColor).toBe("var(--danger-solid-hover)");
+    });
+
+    it("contained primary adds the gradient as backgroundImage, never the shorthand", () => {
+      const r = call(so.MuiButton.styleOverrides.root, { variant: "contained", color: "primary" });
+      expect(r.backgroundImage).toBe("var(--gradient-primary)");
+      expect(r.background).toBeUndefined();
+      expect(r.boxShadow).toBe("var(--shadow-btn-primary)");
+    });
+
+    it("disabled and loading buttons keep the radius but get no fill", () => {
+      for (const extra of [{ disabled: true }, { loading: true }]) {
+        const r = call(so.MuiButton.styleOverrides.root, { variant: "contained", color: "primary", ...extra });
+        expect(r).toEqual({ borderRadius: "var(--radius-chip)" });
+      }
+    });
+
+    it("non-contained buttons are untouched by root", () => {
+      expect(call(so.MuiButton.styleOverrides.root, { variant: "outlined", color: "primary" })).toEqual({});
+    });
+
+    it("a prototype-chain colour name never reaches a var() reference", () => {
+      for (const color of ["constructor", "toString", "__proto__"]) {
+        const r = call(so.MuiButton.styleOverrides.root, { variant: "contained", color });
+        expect(JSON.stringify(r)).not.toContain("function");
+        expect(r.backgroundColor).toBeUndefined();
+      }
+    });
+
+    it("Fab, filled Chip and Badge use the solid rung; default / outlined / disabled do not", () => {
+      expect(call(so.MuiFab.styleOverrides.root, { color: "primary" }).backgroundColor).toBe("var(--primary-solid)");
+      expect(call(so.MuiFab.styleOverrides.root, { color: "default" })).toEqual({});
+      expect(call(so.MuiFab.styleOverrides.root, { color: "primary", disabled: true })).toEqual({});
+      expect(call(so.MuiChip.styleOverrides.root, { variant: "filled", color: "info" }).backgroundColor).toBe("var(--info-solid)");
+      expect(call(so.MuiChip.styleOverrides.root, { variant: "outlined", color: "info" }).backgroundColor).toBeUndefined();
+      expect(call(so.MuiChip.styleOverrides.root, { variant: "filled", color: "default" }).backgroundColor).toBeUndefined();
+      expect(call(so.MuiBadge.styleOverrides.badge, { color: "error" }).backgroundColor).toBe("var(--danger-solid)");
+      expect(call(so.MuiBadge.styleOverrides.badge, { color: "default" })).toEqual({});
+    });
+  });
+
+  describe("input typography (MuiInputBase)", () => {
+    // Every MUI text field (TextField outlined/filled/standard, Autocomplete, multiline,
+    // Select's input) renders through InputBase, so this one slot is the only place the
+    // placeholder size can be fixed for all of them. Without it the input inherits
+    // typography.body1 (15px) and reads bigger than the 14px Bootstrap inputs beside it.
+    const ib = (theme.components as any).MuiInputBase.styleOverrides;
+
+    it("typed text is 14px, not the 15px body1 it would inherit", () => {
+      expect(ib.root.fontSize).toBe("0.875rem");
+    });
+
+    it("::placeholder is pinned to 13px on the input slot", () => {
+      expect(ib.input["&::placeholder"].fontSize).toBe("13px");
+    });
+
+
+    it("does not override placeholder colour or opacity (MUI owns those)", () => {
+      expect(Object.keys(ib.input["&::placeholder"])).toEqual(["fontSize"]);
+    });
+  });
 });

@@ -116,6 +116,25 @@ export type CreateStarterkitThemeOptions = {
   defaultColorScheme?: "light" | "dark";
 };
 
+/** MUI palette intention -> the token family that backs it. Fills read the family's
+ *  `-solid` / `-on-solid` / `-solid-hover` rungs; `main` stays the MARK rung, which is
+ *  right for text, icons and outlines and wrong behind a white label. */
+const FAMILY_TOKENS: Record<string, string> = {
+  primary: "primary",
+  secondary: "secondary",
+  error: "danger",
+  warning: "warning",
+  info: "info",
+  success: "success",
+  accent: "accent",
+  accentGreen: "accent-green",
+  accentPink: "accent-pink",
+};
+/** Own-key lookup: a plain `FAMILY_TOKENS[color]` walks the prototype chain, so a colour
+ *  of "constructor" would return Object's function and emit `var(--function…-solid)`. */
+const familyOf = (color: unknown): string | undefined =>
+  typeof color === "string" && Object.prototype.hasOwnProperty.call(FAMILY_TOKENS, color) ? FAMILY_TOKENS[color] : undefined;
+
 /** The active preset's MUI theme: a `cssVariables`-mode theme whose every
  *  palette value is a `var(--token)` reference into this package's CSS layer,
  *  rather than a literal colour MUI would otherwise try to derive shades from
@@ -330,33 +349,45 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
         },
       },
       MuiButton: {
-        // Cast past MUI v9's narrower `ButtonClasses`: `containedPrimary` and
-        // `containedSecondary` are no longer real classKeys in this version
-        // (Button's `overridesResolver` only resolves `root`, `variant`,
-        // `size*`, `colorInherit`, `disableElevation`, `fullWidth`, `loading`
-        // — see node_modules/@mui/material/Button/Button.js) so both are
-        // inert at runtime, exactly as they silently were in the host's
-        // untyped mui-theme.js. Fixing that (a `variants` array, different
-        // values) is a real design decision this migration phase is not
-        // scoped to make — the object is kept byte-for-byte instead.
+        // `containedPrimary` / `containedSecondary` were the original overrides here and
+        // are INERT on MUI v9: Button's overridesResolver resolves only `root`, `variant`,
+        // `size*`, `colorInherit`, `disableElevation`, `fullWidth` and `loading` (see
+        // node_modules/@mui/material/Button/Button.js), so nothing they said ever applied.
+        // Measured on /design/mui: every contained button painted flat `--primary`
+        // (#37a3fe, the MARK rung, built for text and icons) behind a white label — about
+        // 2.6:1 — instead of the solid-fill gradient `.ib-btn` paints from the same preset.
+        // A `root` function reads ownerState, which v9 does resolve.
         styleOverrides: {
-          containedPrimary: {
-            background: "var(--gradient-primary)",
-            boxShadow: "var(--shadow-btn-primary)",
-            borderRadius: "var(--radius-chip)",
-            "&:hover": {
-              filter: "brightness(1.1)",
-              boxShadow: "0 6px 28px rgb(var(--primary-channel) / 0.5)",
-            },
-          },
-          containedSecondary: {
-            background: "var(--gradient-secondary)",
-            boxShadow: "var(--shadow-btn-secondary)",
-            borderRadius: "var(--radius-chip)",
-            "&:hover": {
-              filter: "brightness(1.1)",
-              boxShadow: "0 6px 28px rgb(var(--secondary-channel) / 0.5)",
-            },
+          root: ({ ownerState }) => {
+            if (ownerState.variant !== "contained") return {};
+            // Radius first and unconditional: a disabled or colour="inherit" contained
+            // button must not jump from the chip radius to the theme's 12px.
+            const base = { borderRadius: "var(--radius-chip)" };
+            // `loading` disables inside ButtonBase (`disabled || loading`), so
+            // ownerState.disabled alone misses it and a loading button kept its gradient.
+            if (ownerState.disabled || ownerState.loading) return base;
+            const f = familyOf(ownerState.color);
+            if (!f) return base;
+            const gradient = f === "primary" || f === "secondary";
+            return {
+              ...base,
+              backgroundColor: `var(--${f}-solid)`,
+              color: `var(--${f}-on-solid)`,
+              // backgroundImage, not the `background` shorthand: the shorthand resets
+              // background-color, so an undefined gradient token would leave the button
+              // transparent instead of falling back to the solid fill above.
+              ...(gradient && {
+                backgroundImage: `var(--gradient-${f})`,
+                boxShadow: `var(--shadow-btn-${f})`,
+              }),
+              "&:hover": {
+                backgroundColor: `var(--${f}-solid-hover)`,
+                ...(gradient && {
+                  filter: "brightness(1.1)",
+                  boxShadow: `0 6px 28px rgb(var(--${f}-channel) / 0.5)`,
+                }),
+              },
+            };
           },
           outlined: {
             borderRadius: "var(--radius-chip)",
@@ -367,17 +398,56 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
               color: "var(--fg1)",
             },
           },
-        } as any,
+        },
+      },
+      // Same defect as MuiButton, same fix: MUI fills Fab and filled Chip / Badge with
+      // palette `main` (the mark rung) and inks them with `contrastText`, which this
+      // package defines as the on-SOLID ink. Ink and fill came from different rungs.
+      MuiFab: {
+        styleOverrides: {
+          root: ({ ownerState }) => {
+            const f = familyOf(ownerState.color);
+            if (!f || ownerState.disabled) return {};
+            return {
+              backgroundColor: `var(--${f}-solid)`,
+              color: `var(--${f}-on-solid)`,
+              "&:hover": { backgroundColor: `var(--${f}-solid-hover)` },
+            };
+          },
+        },
       },
       MuiChip: {
         styleOverrides: {
-          root: {
-            borderRadius: "var(--radius-chip)",
-            fontWeight: 700,
-            fontSize: "10px",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
+          root: ({ ownerState }) => {
+            const f = ownerState.variant === "filled" ? familyOf(ownerState.color) : undefined;
+            return {
+              borderRadius: "var(--radius-chip)",
+              fontWeight: 700,
+              fontSize: "10px",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              ...(f && { backgroundColor: `var(--${f}-solid)`, color: `var(--${f}-on-solid)` }),
+            };
           },
+        },
+      },
+      MuiBadge: {
+        styleOverrides: {
+          badge: ({ ownerState }) => {
+            const f = familyOf(ownerState.color);
+            return f ? { backgroundColor: `var(--${f}-solid)`, color: `var(--${f}-on-solid)` } : {};
+          },
+        },
+      },
+      // InputBase inherits typography.body1 (15px), which made the typed text and the
+      // ::placeholder read bigger than the 14px Bootstrap inputs beside them. The root
+      // size fixes the typed text; the placeholder is pinned a step smaller (13px)
+      // instead of inheriting, so it reads as a hint rather than as entered content.
+      // Opacity/colour are left to MUI.
+      MuiInputBase: {
+        styleOverrides: {
+          root: { fontSize: "0.875rem" },
+          input: { "&::placeholder": { fontSize: "13px" } },
         },
       },
       MuiOutlinedInput: {
