@@ -75,9 +75,12 @@ export const THINK: PresetSpec = makePreset({
   id: "think",
   name: "Think",
   seeds: {
-    /** The brand owner's chosen primary. See the header for why the BUTTON does
-     *  not render this hex and `--primary-solid` is `#007acd` instead. */
-    primary: "#37A3FE",
+    /** The brand owner's chosen primary — `#008AFF` since 2026-11-05 (was
+     *  `#37A3FE`). It is also the button fill: `SOLID_WHITE_FLOOR` (2.5) sits
+     *  below its 3.45:1 against white, so `fillRef` leaves it untouched and the
+     *  primary label is pinned white. The header's `#37A3FE` / `#007acd` numbers
+     *  describe the previous seed. */
+    primary: "#008AFF",
     /** Shared neutral slate. See the header for why this is not a logo colour. */
     secondary: "#64748B",
     /** think's own brand lime — deliberately equal to `accent-green`. See the
@@ -89,15 +92,14 @@ export const THINK: PresetSpec = makePreset({
     /** Fixed categorical "informational" role — same hex as elemetrik's. Not a
      *  brand hue; see `ROLE_NAMES` in `engine/ladder.ts`.
      *
-     *  ROYAL, NOT AZURE, AND THE ROTATION IS THE WHOLE POINT. This was `#0078D4`
-     *  and it collided with THIS preset's primary button: `fillRef` floors
-     *  `--primary-solid` to `#007acd`, and `#0078D4` is what a floored azure
-     *  converges on, so the two fills measured dE00 1.48 (hover 1.09) — under
-     *  the ~2.3 just-noticeable difference, i.e. one colour. Rotating the hue
-     *  from 251 to 260 at the same lightness takes the pair to 12.99 and lifts
-     *  the palette's tightest cross-role pair from 1.09 to 6.79. See
-     *  assertion 17 in `property.test.ts`, which is what now measures this. */
-    info: "#0058D4",
+     *  2026-11-06: `#37A3FE` (was royal `#0058D4`), by request — the lighter
+     *  sky blue think's primary used to be. Primary is now `#008AFF`, so the
+     *  resting fills are distinct but info's HOVER fill sits dE00 4.77 from
+     *  primary's resting fill — under assertion 17's 6.0 floor, recorded in
+     *  `SEPARATION_ACKNOWLEDGED` in `property.test.ts`. History: `#0078D4`
+     *  once collided with a floored primary at dE00 1.48, which is what
+     *  assertion 17 was written for. */
+    info: "#37A3FE",
     /** Fixed categorical accent — same hex as elemetrik's, and as think's own
      *  `accent` above (intended equality, see header). */
     "accent-green": "#B3D335",

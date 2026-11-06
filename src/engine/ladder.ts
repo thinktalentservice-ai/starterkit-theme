@@ -99,37 +99,33 @@ export const FILL_INK: ColorRef = { k: "fixed", hex: "#0b0f19" };
 export const FILL_WHITE: ColorRef = { k: "fixed", hex: "#ffffff" };
 
 /**
- * The contrast a SOLID FILL owes WHITE, so that white is the ink the `ink` rule
- * measures its way to.
+ * The contrast the PRIMARY SOLID FILL owes WHITE — how far `fillRef` in
+ * `presets/base.ts` sinks the brand seed toward black, expressed as a `sink`
+ * ColorRef.
  *
- * NOT A PREFERENCE FOR WHITE — a floor on the backdrop, applied by `fillRef` in
- * `presets/base.ts` and expressed as a `sink` ColorRef. The candidate list is
- * untouched; the fill moves under it and white wins on the numbers.
+ * 2.5, A FLOOR THAT THINK'S SEED ALREADY CLEARS (owner decision, 2026-11-05,
+ * third revision). 4.5 sank think's `#37a3fe` to `#007acd` (too deep); 3.5 sank
+ * it to `#178de6` (still not the brand blue). The owner wants the seed itself
+ * as the button fill, so the floor now sits BELOW the seed's own 2.68:1 against
+ * white and `sink` returns the seed untouched — the same no-op elemetrik gets.
+ * The mechanism stays for tenant seeds paler than ~2.5:1, where a white label
+ * would be unreadable on any terms.
  *
- * 4.5 IS TWO THINGS AT ONCE AND BOTH ARE LOAD-BEARING. It is WCAG 2.2 SS1.4.3
- * for the label itself, and it is above the ratio at which the two candidate
- * inks are equally legible against the same fill:
+ * The ink crossover is 4.376:
  *
  *     crossover = 1.05 / sqrt(1.05 * (L(FILL_INK) + 0.05)) = 4.376
  *
- * Any colour satisfying a floor ABOVE that crossover necessarily scores higher
- * with white than with `FILL_INK`, so the floor cannot be satisfied and still
- * leave the ink dark. Below it the mechanism silently stops working — the fill
- * darkens, the label stays dark, and nothing fails. `property.test.ts` derives
- * the crossover from `FILL_INK` and asserts this constant exceeds it, rather
- * than restating 4.376 as a number that would go stale the moment `FILL_INK`
- * moves.
+ * so the `ink` rule would pick the DARK label by itself. `primary`'s
+ * `--primary-on-solid` and `--gradient-avatar-2-ink` therefore PIN `[FILL_WHITE]`
+ * in `presets/base.ts` — the label is forced, not measured. THE COST:
  *
- * MEASURED, on the two shipped seeds:
+ *     think      #37a3fe  white 2.68 resting — below WCAG 1.4.11 (3:1) AND 1.4.3 (4.5:1)
+ *     elemetrik  #6832ff  white 6.02 — untouched
  *
- *     think      #37a3fe -> #007acd   white 4.50 resting / 5.10 hover
- *     elemetrik  #6832ff -> #6832ff   white 6.02 resting — untouched, no-op
- *
- * The margin over the crossover is 0.124, which is thin and is the price of
- * pinning the floor to the AA threshold rather than to a number chosen to feel
- * safe. Raising it would darken the fill further for no accessibility gain.
+ * Recorded in the host's legibility ledger. Every other family keeps its
+ * measured label and seed fill; the floor is still scoped to `primary`.
  */
-export const SOLID_WHITE_FLOOR = 4.5;
+export const SOLID_WHITE_FLOOR = 2.5;
 
 /**
  * The fraction of the way a solid fill moves toward ink on hover.

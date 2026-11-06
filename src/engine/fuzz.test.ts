@@ -76,9 +76,10 @@ describe("fuzz — resolveBrand survives an arbitrary client seed", () => {
            and this test is what turns "raise SOLID_WHITE_FLOOR past what a hue
            can give" into a failure rather than a silently unfloored button.
 
-           The ink assertion is the stronger half: SOLID_WHITE_FLOOR sits above
-           the white-vs-FILL_INK crossover, so a satisfied floor forces white.
-           `#ffffff` for EVERY seed, on every preset, in both schemes. */
+           The ink assertion is the other half: since 2026-11-05 SOLID_WHITE_FLOOR
+           sits BELOW the white-vs-FILL_INK crossover, so white is not implied by
+           the floor — `base.ts` pins it. `#ffffff` for EVERY seed, on every
+           preset, in both schemes. */
         /* Scheme equality is the third leg: both of `fillRef`'s inputs are
            scheme-invariant, so a floored fill that differs between schemes means
            the sink started reading `ctx.ramps[scheme]` — the same silent split
