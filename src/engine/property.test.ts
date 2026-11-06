@@ -143,10 +143,20 @@ const AVATAR_SHORTFALLS: Record<string, [number, string, number]> = {
      flattening them again, and both are a bigger design change than the button
      colour that was actually asked for. Both still beat elemetrik's shipped
      3.48/3.42 on the same tokens. */
-  "think|dark|--gradient-avatar": [2.68, "#37a3fe", 0],
-  "think|light|--gradient-avatar": [2.68, "#37a3fe", 0],
-  "think|dark|--gradient-avatar-3": [4.25, "#007acd", 1],
-  "think|light|--gradient-avatar-3": [4.25, "#007acd", 1],
+  "think|dark|--gradient-avatar": [3.45, "#008aff", 0],
+  "think|light|--gradient-avatar": [3.45, "#008aff", 0],
+  /* 2026-11-05: think's primary seed is now `#008AFF` (was `#37A3FE`) and the
+     fill IS the seed: `SOLID_WHITE_FLOOR` 4.5 -> 2.5 sits below its 3.45:1
+     against white, so `fillRef` no-ops, and the primary label is pinned white.
+     Every sweep that starts on the primary fill therefore troughs on it at
+     white's 3.45 — the same shortfall the primary BUTTON carries.
+     `--gradient-primary-accent-pink` troughs mid-blend at 4.09. */
+  "think|dark|--gradient-avatar-2": [3.45, "#008aff", 0],
+  "think|light|--gradient-avatar-2": [3.45, "#008aff", 0],
+  "think|dark|--gradient-primary-info": [3.45, "#008aff", 0],
+  "think|light|--gradient-primary-info": [3.45, "#008aff", 0],
+  "think|dark|--gradient-primary-accent-pink": [4.09, "#7767c0", 0.5],
+  "think|light|--gradient-primary-accent-pink": [4.09, "#7767c0", 0.5],
   /* THINK'S `--gradient-primary-info` HAS NO ENTRY ANY MORE, and its deletion is
      the one place this change made something measurably better rather than
      merely different. It sat at 4.48 — short of 4.5:1 by 0.02 — because
@@ -163,8 +173,6 @@ const AVATAR_SHORTFALLS: Record<string, [number, string, number]> = {
      the same 3.64 at the same stop elemetrik has always shipped for this token
      — think has converged onto elemetrik's number rather than found a new
      failure — but it is a loss and is written down as one. */
-  "think|dark|--gradient-primary-accent-pink": [3.64, "#ee4480", 1],
-  "think|light|--gradient-primary-accent-pink": [3.64, "#ee4480", 1],
   /* elemetrik's own `accent` IS `#EE4480` (see `elemetrik.ts`'s header on the
      intended `accent == accent-pink` equality), so this sweep is primary
      (`#6832FF`) -> accent-pink and troughs at the END stop, the same shape as
@@ -496,21 +504,20 @@ describe("property — invariants across every preset, both schemes", () => {
     expect(bad).toEqual([]);
   });
 
-  it("6b. the fill floor sits ABOVE the ink crossover, so white cannot be floored-to and still lose", () => {
-    /* THE MECHANISM'S CORRECTNESS CONDITION, DERIVED RATHER THAN RESTATED. The
-       `ink` rule is untouched by the floor — white wins because the backdrop
-       moved under it — and that only holds while SOLID_WHITE_FLOOR exceeds the
-       ratio at which the two candidate inks are equally legible against the
-       same fill. Below that crossover the fill would darken, the label would
-       stay dark, and NOTHING would fail: no duty, no gate, no screenshot. The
-       crossover is computed from FILL_INK here, so moving FILL_INK re-derives it
-       instead of leaving a stale number in a comment. */
+  it("6b. the fill floor sits BELOW the ink crossover, so the primary label is PINNED to white", () => {
+    /* THE 2026-11-05 OWNER DECISION, ASSERTED. The floor used to sit above the
+       ink crossover so the `ink` rule landed on white by arithmetic. It now sits
+       below it on purpose (the 4.5 fill read too deep), which means measuring
+       would pick the DARK label — so `base.ts` pins `[FILL_WHITE]` for primary
+       and this test holds both halves: the floor is still a real WCAG 1.4.11
+       3:1 floor, and the label is white on every preset and scheme. If someone
+       raises the floor back above the crossover this still passes, and the pin
+       is merely redundant. */
     const ink = (FILL_INK as { k: "fixed"; hex: string }).hex;
     const crossover = 1.05 / Math.sqrt(1.05 * (relativeLuminance(ink) + 0.05));
-    expect(SOLID_WHITE_FLOOR).toBeGreaterThan(crossover);
+    expect(SOLID_WHITE_FLOOR).toBeGreaterThanOrEqual(2.5);
+    expect(SOLID_WHITE_FLOOR).toBeLessThan(crossover);
 
-    /* And the consequence, on the shipped presets: every primary fill takes the
-       white label. */
     for (const { id, brand } of RESOLVED) {
       for (const scheme of SCHEMES) {
         const map = scheme === "dark" ? brand.dark : brand.light;
@@ -550,7 +557,10 @@ describe("property — invariants across every preset, both schemes", () => {
       const ink = map.get(`--${f}-on-solid`)!;
       for (const on of [`--${f}-solid`, `--${f}-solid-hover`]) {
         const r = contrastRatio(ink, map.get(on)!);
-        if (r < 4.5) bad.push(`${id}|${scheme}|--${f}-on-solid on ${on}: ${r.toFixed(2)} < 4.5`);
+        /* PRIMARY IS HELD TO 2.5, not 4.5 — the 2026-11-05 owner decision (fill
+           is the brand seed, label forced white). Every other family keeps 4.5. */
+        const min = f === "primary" ? 2.5 : 4.5;
+        if (r < min) bad.push(`${id}|${scheme}|--${f}-on-solid on ${on}: ${r.toFixed(2)} < ${min}`);
       }
     }
     expect(bad).toEqual([]);
@@ -712,10 +722,13 @@ describe("property — invariants across every preset, both schemes", () => {
         map.get("--gradient-avatar-from"),
         `think (${scheme}): AVATAR_FROM must no-op onto the seed`,
       ).toBe(think.preset.families.primary!.seed);
+      /* 2026-11-05: the floor (2.5) now sits below think's seed (2.68), so the
+         fill IS the seed and the mark/fill split is gone — the old inequality
+         asserted a split that no longer exists. Both must be the seed. */
       expect(
         map.get("--gradient-avatar-from"),
-        `think (${scheme}): the avatar mark must NOT follow the floored fill`,
-      ).not.toBe(map.get("--primary-solid"));
+        `think (${scheme}): the avatar mark and the primary fill are the same seed`,
+      ).toBe(map.get("--primary-solid"));
     }
 
     /* AVATAR_3_FROM IS PINNED TO THE SEED TOO, and needs its own assertion
@@ -981,7 +994,7 @@ describe("property — invariants across every preset, both schemes", () => {
        `separationFaults`, so emptying that function fails HERE too.
 
        Three things are asserted, not one: that the shipped preset is clean, that
-       re-injecting `#0078D4` produces faults, and that the faults are the
+       re-injecting `#3AA5FD` (a hair from think's `#37A3FE` primary fill) produces faults, and that the faults are the
        primary/info FILLS specifically rather than some unrelated regression that
        would make this pass for the wrong reason. */
     const entry = PRESET_ENTRIES.find(([id]) => id === "think");
@@ -992,7 +1005,7 @@ describe("property — invariants across every preset, both schemes", () => {
 
     const reinjected: PresetSpec = {
       ...think,
-      families: { ...think.families, info: { ...think.families.info!, seed: "#0078D4" } },
+      families: { ...think.families, info: { ...think.families.info!, seed: "#3AA5FD" } },
     };
     const faults = separationFaults(id, reinjected, resolveBrand(reinjected)).bad;
     expect(faults.length).toBeGreaterThan(0);

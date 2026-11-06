@@ -260,7 +260,10 @@ function roleRules(f: RoleName): Record<string, TokenRule> {
     [`--${f}-on-solid`]: {
       kind: "ink",
       over: [fillRef(f), hoverRef(f)],
-      candidates: [FILL_INK, FILL_WHITE],
+      /* PRIMARY PINS WHITE (owner decision, 2026-11-05). `SOLID_WHITE_FLOOR` is
+         now below the ink crossover, so measuring would hand think's primary a
+         dark label. White on the floored fill reads ~3.5:1 — see ladder.ts. */
+      candidates: f === "primary" ? [FILL_WHITE] : [FILL_INK, FILL_WHITE],
     },
 
     /* THE TINT — a chip or callout background. Alpha over the scheme-following
@@ -557,7 +560,7 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
     "--gradient-avatar-2-ink": {
       kind: "ink",
       over: sweepSamples(fillRef("primary"), hoverRef("primary")),
-      candidates: [FILL_INK, FILL_WHITE],
+      candidates: [FILL_WHITE],
     },
 
     "--gradient-avatar-3-from": { kind: "solid", ref: AVATAR_3_FROM },

@@ -75,9 +75,12 @@ export const THINK: PresetSpec = makePreset({
   id: "think",
   name: "Think",
   seeds: {
-    /** The brand owner's chosen primary. See the header for why the BUTTON does
-     *  not render this hex and `--primary-solid` is `#007acd` instead. */
-    primary: "#37A3FE",
+    /** The brand owner's chosen primary — `#008AFF` since 2026-11-05 (was
+     *  `#37A3FE`). It is also the button fill: `SOLID_WHITE_FLOOR` (2.5) sits
+     *  below its 3.45:1 against white, so `fillRef` leaves it untouched and the
+     *  primary label is pinned white. The header's `#37A3FE` / `#007acd` numbers
+     *  describe the previous seed. */
+    primary: "#008AFF",
     /** Shared neutral slate. See the header for why this is not a logo colour. */
     secondary: "#64748B",
     /** think's own brand lime — deliberately equal to `accent-green`. See the
