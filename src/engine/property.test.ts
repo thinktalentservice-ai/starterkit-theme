@@ -153,8 +153,13 @@ const AVATAR_SHORTFALLS: Record<string, [number, string, number]> = {
      `--gradient-primary-accent-pink` troughs mid-blend at 4.09. */
   "think|dark|--gradient-avatar-2": [3.45, "#008aff", 0],
   "think|light|--gradient-avatar-2": [3.45, "#008aff", 0],
-  "think|dark|--gradient-primary-info": [3.45, "#008aff", 0],
-  "think|light|--gradient-primary-info": [3.45, "#008aff", 0],
+  /* 2026-11-06: `info` is now `#37A3FE`. think's `--gradient-primary-info`
+     (`#008aff` -> `#37a3fe`) clears AA at 5.54 and its row is DELETED. elemetrik's
+     (`#6832ff` -> `#37a3fe`) is the casualty: the light info end forces the dark
+     ink, which troughs on the violet START stop at 3.18. Recorded, not designed
+     away. */
+  "elemetrik|dark|--gradient-primary-info": [3.18, "#6832ff", 0],
+  "elemetrik|light|--gradient-primary-info": [3.18, "#6832ff", 0],
   "think|dark|--gradient-primary-accent-pink": [4.09, "#7767c0", 0.5],
   "think|light|--gradient-primary-accent-pink": [4.09, "#7767c0", 0.5],
   /* THINK'S `--gradient-primary-info` HAS NO ENTRY ANY MORE, and its deletion is
@@ -277,6 +282,28 @@ const INTENDED_TWINS: Record<string, ReadonlyArray<readonly [RoleName, RoleName]
   elemetrik: [["accent", "accent-pink"]],
 };
 
+/** The `info` seed both presets ship. Only used so 17's ledger-completeness check
+ *  does not fire on a fault-injected reseed. */
+const SHIPPED_INFO_SEED = "#37A3FE";
+
+/** Pairs that sit under `MIN_ROLE_SEPARATION` BY REQUEST, measured and written down
+ *  rather than the floor being lowered. Key: `preset|scheme|--A<rung>|--B<rung>`
+ *  (A before B in ROLE_NAMES), value: the dE00 observed.
+ *
+ *  2026-11-06: `info` is now `#37A3FE` (was `#0058D4`) in both presets, by request.
+ *  think's `primary` fill is `#008AFF`, so think's HOVERED info fill (`#3397ec`)
+ *  lands dE00 4.77 from the RESTING primary fill — a hovered info button reads as
+ *  the primary one next to it. Below the 6.0 floor, above the ~2.3 JND, so the two
+ *  stay distinguishable but not comfortably. Resting fills stay clear of the floor.
+ *  Scheme-invariant (both are `shift: 0` fills), hence two rows. */
+const SEPARATION_ACKNOWLEDGED: Record<string, number> = {
+  "think|dark|--primary-solid|--info-solid-hover": 4.77,
+  "think|light|--primary-solid|--info-solid-hover": 4.77,
+};
+
+/** How far an acknowledged dE00 may move before it must be re-read. */
+const SEPARATION_DRIFT = 0.1;
+
 /** Assertion 17's entire comparison, extracted so 17b can run the SAME code over
  *  a fault-injected preset.
  *
@@ -291,6 +318,7 @@ function separationFaults(id: string, preset: PresetSpec, brand: ReturnType<type
   const bad: string[] = [];
   const declared = new Set((INTENDED_TWINS[id] ?? []).map(([a, b]) => [a, b].sort().join("|")));
   const seenTwins = new Set<string>();
+  const seenAcks = new Set<string>();
   let compared = 0;
   let twinChecks = 0;
 
@@ -350,6 +378,17 @@ function separationFaults(id: string, preset: PresetSpec, brand: ReturnType<type
           }
           compared++;
           const dE = deltaE00Hex(a, b);
+          const ackKey = `${id}|${scheme}|--${A}${rA}|--${B}${rB}`;
+          const acked = SEPARATION_ACKNOWLEDGED[ackKey];
+          if (acked !== undefined) {
+            seenAcks.add(ackKey);
+            if (dE >= MIN_ROLE_SEPARATION) {
+              bad.push(`${ackKey}: now measures dE00 ${dE.toFixed(2)} and PASSES — delete the stale acknowledgement`);
+            } else if (Math.abs(dE - acked) > SEPARATION_DRIFT) {
+              bad.push(`${ackKey}: acknowledged at dE00 ${acked} but measures ${dE.toFixed(2)} — re-read and re-record`);
+            }
+            continue;
+          }
           if (dE < MIN_ROLE_SEPARATION) {
             bad.push(
               `${id}|${scheme}|--${A}${rA} ${a} vs --${B}${rB} ${b} — dE00 ${dE.toFixed(2)} < ${MIN_ROLE_SEPARATION}`,
@@ -362,6 +401,15 @@ function separationFaults(id: string, preset: PresetSpec, brand: ReturnType<type
   for (const key of declared) {
     if (!seenTwins.has(key)) {
       bad.push(`${id}|INTENDED_TWINS names ${key}, which is not a pair of ROLE_NAMES`);
+    }
+  }
+  /* Only the real presets are held to the ledger's completeness; a fault-injected
+     preset (17b/17c) legitimately stops producing a recorded pair. */
+  if (id in INTENDED_TWINS && preset.families.info?.seed === SHIPPED_INFO_SEED) {
+    for (const key of Object.keys(SEPARATION_ACKNOWLEDGED)) {
+      if (key.startsWith(`${id}|`) && !seenAcks.has(key)) {
+        bad.push(`${key}: acknowledged separation never measured — the pair or preset is gone`);
+      }
     }
   }
   return { bad, compared, twinChecks };
@@ -994,7 +1042,7 @@ describe("property — invariants across every preset, both schemes", () => {
        `separationFaults`, so emptying that function fails HERE too.
 
        Three things are asserted, not one: that the shipped preset is clean, that
-       re-injecting `#3AA5FD` (a hair from think's `#37A3FE` primary fill) produces faults, and that the faults are the
+       re-injecting `#0A8CFF` (a hair from think's `#008AFF` primary fill) produces faults, and that the faults are the
        primary/info FILLS specifically rather than some unrelated regression that
        would make this pass for the wrong reason. */
     const entry = PRESET_ENTRIES.find(([id]) => id === "think");
@@ -1005,7 +1053,7 @@ describe("property — invariants across every preset, both schemes", () => {
 
     const reinjected: PresetSpec = {
       ...think,
-      families: { ...think.families, info: { ...think.families.info!, seed: "#3AA5FD" } },
+      families: { ...think.families, info: { ...think.families.info!, seed: "#0A8CFF" } },
     };
     const faults = separationFaults(id, reinjected, resolveBrand(reinjected)).bad;
     expect(faults.length).toBeGreaterThan(0);
