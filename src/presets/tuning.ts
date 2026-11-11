@@ -49,16 +49,21 @@ export function mergeTuning(base: Tuning, brand: Tuning | undefined): Scheme<Rea
   };
 }
 
-/** Flat fill: a one-colour "gradient", so `background: var(--gradient-x)` call
- *  sites render the solid instead of a two-stop sweep. */
-const flat = (hex: string): string => `linear-gradient(${hex}, ${hex})`;
+/** Flat fill: a one-colour "gradient" over `--<f>-solid`, so
+ *  `background: var(--gradient-x)` call sites render the solid instead of a
+ *  two-stop sweep. Written with `var()` stops, NOT literal hexes: a scope that
+ *  re-declares `--<f>-solid` must re-colour the gradient too, and the host
+ *  legibility gate resolves gradient stops through `var()` — literal stops
+ *  leave every row built on them measuring nothing. */
+export const flatGradient = (f: string): string =>
+  `linear-gradient(var(--${f}-solid), var(--${f}-solid))`;
 
 /** The four fill tokens of a family, same in both schemes. */
 const fill = (f: string, solid: string, hover: string): Record<string, string> => ({
   [`--${f}-solid`]: solid,
   [`--${f}-solid-hover`]: hover,
   [`--${f}-on-solid`]: "#ffffff",
-  [`--gradient-${f}`]: flat(solid),
+  [`--gradient-${f}`]: flatGradient(f),
 });
 
 const ROLES = [

@@ -49,7 +49,7 @@
  * back. Splitting text from mark removes the need for either.
  */
 import { makePreset } from "./base";
-import { tune } from "./tuning";
+import { flatGradient, tune } from "./tuning";
 import type { PresetSpec } from "../engine/spec";
 
 /* HAND-TUNED (2026-11, from the system-owner admin's palette page) — see
@@ -57,19 +57,19 @@ import type { PresetSpec } from "../engine/spec";
  * dark mark), pink accent (`#d42a68` fill), aubergine secondary (`#1f1442`,
  * lifted to `#3a2c6e` as a dark fill). Info stays the shared Think Talent blue.
  * Where this contradicts the measured narrative above, the tuning ships. */
-const flat = (hex: string): string => `linear-gradient(${hex}, ${hex})`;
+
 
 const ELEMETRIK_TUNING = tune({
   both: {
     "--primary-solid": "#6835ff",
     "--primary-solid-hover": "#5a27ee",
     "--primary-on-solid": "#ffffff",
-    "--gradient-primary": flat("#6835ff"),
-    "--gradient-avatar": flat("#6835ff"),
+    "--gradient-primary": flatGradient("primary"),
+    "--gradient-avatar": flatGradient("primary"),
     "--accent-solid": "#d42a68",
     "--accent-solid-hover": "#bb2059",
     "--accent-on-solid": "#ffffff",
-    "--gradient-accent": flat("#d42a68"),
+    "--gradient-accent": flatGradient("accent"),
     "--secondary-on-solid": "#ffffff",
   },
   light: {
@@ -91,7 +91,7 @@ const ELEMETRIK_TUNING = tune({
     "--secondary-channel": "31 20 66",
     "--secondary-solid": "#1f1442",
     "--secondary-solid-hover": "#2c1d5c",
-    "--gradient-secondary": flat("#1f1442"),
+    "--gradient-secondary": flatGradient("secondary"),
   },
   dark: {
     "--primary": "#8a63ff",
@@ -113,7 +113,7 @@ const ELEMETRIK_TUNING = tune({
     /* An aubergine fill disappears on a near-black page; lift it. */
     "--secondary-solid": "#3a2c6e",
     "--secondary-solid-hover": "#45357f",
-    "--gradient-secondary": flat("#3a2c6e"),
+    "--gradient-secondary": flatGradient("secondary"),
   },
 });
 

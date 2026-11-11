@@ -69,7 +69,7 @@
  * lime. Only the text and border rungs darken.
  */
 import { makePreset } from "./base";
-import { tune } from "./tuning";
+import { flatGradient, tune } from "./tuning";
 import type { PresetSpec } from "../engine/spec";
 
 /* HAND-TUNED (2026-11, from the system-owner admin's palette page) — see
@@ -79,18 +79,18 @@ import type { PresetSpec } from "../engine/spec";
  * fill so it does not vanish on near-black). Accent is the logo lime, flat.
  * Where this contradicts the measured narrative above (the `#007acd` floored
  * fill, the olive light-mode lime), the tuning is what ships. */
-const flat = (hex: string): string => `linear-gradient(${hex}, ${hex})`;
+
 
 const THINK_TUNING = tune({
   both: {
     "--secondary-solid": "#0e2a4d",
     "--secondary-solid-hover": "#163a66",
     "--secondary-on-solid": "#ffffff",
-    "--gradient-secondary": flat("#0e2a4d"),
+    "--gradient-secondary": flatGradient("secondary"),
     "--accent-solid": "#b3d335",
     "--accent-solid-hover": "#a6c333",
     "--accent-on-solid": "#ffffff",
-    "--gradient-accent": flat("#b3d335"),
+    "--gradient-accent": flatGradient("accent"),
   },
   light: {
     "--primary": "#008aff",
@@ -102,8 +102,8 @@ const THINK_TUNING = tune({
     "--primary-solid": "#008aff",
     "--primary-solid-hover": "#0080ee",
     "--primary-on-solid": "#ffffff",
-    "--gradient-primary": flat("#008aff"),
-    "--gradient-avatar": flat("#008aff"),
+    "--gradient-primary": flatGradient("primary"),
+    "--gradient-avatar": flatGradient("primary"),
     "--secondary": "#0e2a4d",
     "--secondary-text": "#0e2a4d",
     "--secondary-bg": "#eef1f6",
@@ -125,8 +125,8 @@ const THINK_TUNING = tune({
     "--primary-solid": "#3aa0ff",
     "--primary-solid-hover": "#2b93f5",
     "--primary-on-solid": "#ffffff",
-    "--gradient-primary": flat("#3aa0ff"),
-    "--gradient-avatar": flat("#3aa0ff"),
+    "--gradient-primary": flatGradient("primary"),
+    "--gradient-avatar": flatGradient("primary"),
     "--secondary": "#7b8fa8",
     "--secondary-text": "#a3b1c4",
     "--secondary-bg": "rgb(123 143 168 / 0.16)",
@@ -135,7 +135,7 @@ const THINK_TUNING = tune({
     /* A navy fill disappears on a near-black page; lift it. */
     "--secondary-solid": "#2b4366",
     "--secondary-solid-hover": "#33507a",
-    "--gradient-secondary": flat("#2b4366"),
+    "--gradient-secondary": flatGradient("secondary"),
     "--accent": "#b3d335",
     "--accent-text": "#c8e063",
     "--accent-bg": "rgb(179 211 53 / 0.14)",

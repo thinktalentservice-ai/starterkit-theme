@@ -221,8 +221,8 @@ export const ROOT_TOKEN_NAMES = [
   "--white-channel",
 ] as const;
 
-/** Custom properties the light scheme declares. 102 names,
- *  of which 102 actually differ from their `:root` value. */
+/** Custom properties the light scheme declares. 98 names,
+ *  of which 98 actually differ from their `:root` value. */
 export const LIGHT_TOKEN_NAMES = [
   "--void",
   "--background",
@@ -317,10 +317,6 @@ export const LIGHT_TOKEN_NAMES = [
   "--shadow-btn-info",
   "--shadow-btn-accent-green",
   "--shadow-btn-accent-pink",
-  "--gradient-primary",
-  "--gradient-secondary",
-  "--gradient-info",
-  "--gradient-avatar",
   "--background-channel",
   "--card-channel",
   "--fg1-channel",
@@ -423,10 +419,6 @@ export const LIGHT_FLIPPED_TOKEN_NAMES = [
   "--shadow-btn-info",
   "--shadow-btn-accent-green",
   "--shadow-btn-accent-pink",
-  "--gradient-primary",
-  "--gradient-secondary",
-  "--gradient-info",
-  "--gradient-avatar",
   "--background-channel",
   "--card-channel",
   "--fg1-channel",
