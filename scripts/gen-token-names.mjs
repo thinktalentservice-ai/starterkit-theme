@@ -149,7 +149,13 @@ for (const ch of channelNames) {
 
 /* Names the light scheme redefines. A brand that flips a hue must flip these
    and nothing else, or a light page keeps a dark-surface value. */
-const flipped = lightNames.filter((n) => root.get(n) !== light.get(n));
+/* A light-block name that equals `:root` HERE still flips in another preset:
+   gen-preset-css.mjs declares the union of every preset's flips in every sheet
+   (think's accent is one lime in both schemes, elemetrik's accent mark is not).
+   Reading "flipped" off this one sheet's values would hand validateBrandDoc a
+   list missing those, and an override of one would half-brand light mode on the
+   other preset. So a declared light name IS a flipped name, catalogue-wide. */
+const flipped = lightNames;
 
 const list = (names) => names.map((n) => `  ${JSON.stringify(n)},`).join("\n");
 

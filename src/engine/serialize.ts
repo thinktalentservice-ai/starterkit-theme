@@ -41,6 +41,17 @@ export type SerializeOptions = {
    * seed file the cycle resolves to "alphabetical, forever".
    */
   order?: readonly string[];
+  /**
+   * Tokens to declare in the light block even when the value equals `:root`.
+   *
+   * For a CATALOGUE of sheets that must flip the same token set. Hand-tuned
+   * presets differ in which tokens happen to change between schemes (think's
+   * fill flips and elemetrik's does not; elemetrik's accent mark flips and
+   * think's does not), and a consumer that swaps sheets must see one ABI —
+   * `LIGHT_TOKEN_NAMES` is generated from one sheet and gates what a brand
+   * document may override. `gen-preset-css.mjs` passes the union across presets.
+   */
+  alwaysLight?: readonly string[];
 };
 
 const DEFAULT_LIGHT_SELECTORS = ['[data-mui-color-scheme="light"]'] as const;
@@ -71,10 +82,11 @@ export function serializeBrandCss(brand: ResolvedBrand, options: SerializeOption
   }
   for (const name of orderedNames(brand.dark, order)) rootLines.push(decl(name, brand.dark.get(name)!));
 
+  const alwaysLight = new Set(options.alwaysLight ?? []);
   const lightLines: string[] = [];
   for (const name of orderedNames(brand.light, order)) {
     const value = brand.light.get(name)!;
-    if (brand.dark.get(name) === value) continue;
+    if (brand.dark.get(name) === value && !alwaysLight.has(name)) continue;
     lightLines.push(decl(name, value));
   }
   // `color-scheme` makes the UA paint scrollbars and form controls light too.

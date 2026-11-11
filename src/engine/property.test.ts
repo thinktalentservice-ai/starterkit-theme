@@ -29,6 +29,7 @@ import { deltaE00Hex } from "../color/deltaE";
 import { hexToOklch, hexToTriple, oklchToHex } from "../color/oklch";
 import { clampChroma } from "../color/gamut";
 import { PRESETS } from "../presets/index";
+import { untuned } from "../presets/tuning";
 import { CHANNEL_PAIRS, ROOT_TOKEN_NAMES } from "../tokens/names";
 import { FILL_INK, HOVER_MIX, ROLE_NAMES, SOLID_WHITE_FLOOR, type RoleName } from "./ladder";
 import { measureAcknowledged, resolveBrand } from "./resolve";
@@ -36,9 +37,13 @@ import type { PresetSpec } from "./spec";
 
 const SCHEMES = ["dark", "light"] as const;
 
-const PRESET_ENTRIES = Object.entries(PRESETS).filter(
-  (e): e is [string, NonNullable<(typeof PRESETS)[keyof typeof PRESETS]>] => e[1] !== undefined,
-);
+/* UNTUNED: these are the engine's invariants. The hand-tuned layer breaks
+   several on purpose and is pinned by `tuning.test.ts` instead. */
+const PRESET_ENTRIES = Object.entries(PRESETS)
+  .filter(
+    (e): e is [string, NonNullable<(typeof PRESETS)[keyof typeof PRESETS]>] => e[1] !== undefined,
+  )
+  .map(([id, p]) => [id, untuned(p)] as [string, PresetSpec]);
 
 const RESOLVED = PRESET_ENTRIES.map(([id, preset]) => ({ id, preset, brand: resolveBrand(preset) }));
 

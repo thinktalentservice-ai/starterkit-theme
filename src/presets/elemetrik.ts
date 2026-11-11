@@ -49,15 +49,84 @@
  * back. Splitting text from mark removes the need for either.
  */
 import { makePreset } from "./base";
+import { flatGradient, tune } from "./tuning";
 import type { PresetSpec } from "../engine/spec";
+
+/* HAND-TUNED (2026-11, from the system-owner admin's palette page) — see
+ * `tuning.ts`. Violet primary (`#6835ff` fill in both schemes, `#8a63ff` as the
+ * dark mark), pink accent (`#d42a68` fill), aubergine secondary (`#1f1442`,
+ * lifted to `#3a2c6e` as a dark fill). Info stays the shared Think Talent blue.
+ * Where this contradicts the measured narrative above, the tuning ships. */
+
+
+const ELEMETRIK_TUNING = tune({
+  both: {
+    "--primary-solid": "#6835ff",
+    "--primary-solid-hover": "#5a27ee",
+    "--primary-on-solid": "#ffffff",
+    "--gradient-primary": flatGradient("primary"),
+    "--gradient-avatar": flatGradient("primary"),
+    "--accent-solid": "#d42a68",
+    "--accent-solid-hover": "#bb2059",
+    "--accent-on-solid": "#ffffff",
+    "--gradient-accent": flatGradient("accent"),
+    "--secondary-on-solid": "#ffffff",
+  },
+  light: {
+    "--primary": "#6835ff",
+    "--primary-text": "#4b1fcc",
+    "--primary-bg": "#f1ecff",
+    "--primary-border": "rgb(104 53 255 / 0.35)",
+    "--primary-channel": "104 53 255",
+    "--ring": "rgb(104 53 255 / 0.4)",
+    "--accent": "#e93574",
+    "--accent-text": "#b4205a",
+    "--accent-bg": "#fde8f0",
+    "--accent-border": "rgb(233 53 116 / 0.35)",
+    "--accent-channel": "233 53 116",
+    "--secondary": "#1f1442",
+    "--secondary-text": "#1f1442",
+    "--secondary-bg": "#f1eef8",
+    "--secondary-border": "rgb(31 20 66 / 0.22)",
+    "--secondary-channel": "31 20 66",
+    "--secondary-solid": "#1f1442",
+    "--secondary-solid-hover": "#2c1d5c",
+    "--gradient-secondary": flatGradient("secondary"),
+  },
+  dark: {
+    "--primary": "#8a63ff",
+    "--primary-text": "#a58aff",
+    "--primary-bg": "rgb(138 99 255 / 0.18)",
+    "--primary-border": "rgb(138 99 255 / 0.4)",
+    "--primary-channel": "138 99 255",
+    "--ring": "rgb(138 99 255 / 0.4)",
+    "--accent": "#ee4f86",
+    "--accent-text": "#f27aa3",
+    "--accent-bg": "rgb(238 79 134 / 0.16)",
+    "--accent-border": "rgb(238 79 134 / 0.4)",
+    "--accent-channel": "238 79 134",
+    "--secondary": "#8a7fb0",
+    "--secondary-text": "#b0a8cc",
+    "--secondary-bg": "rgb(138 127 176 / 0.16)",
+    "--secondary-border": "rgb(138 127 176 / 0.4)",
+    "--secondary-channel": "138 127 176",
+    /* An aubergine fill disappears on a near-black page; lift it. */
+    "--secondary-solid": "#3a2c6e",
+    "--secondary-solid-hover": "#45357f",
+    "--gradient-secondary": flatGradient("secondary"),
+  },
+});
 
 export const ELEMETRIK: PresetSpec = makePreset({
   id: "elemetrik",
   name: "Elemetrik",
+  overrides: ELEMETRIK_TUNING,
   seeds: {
-    /** The elemetrik mark's violet, sampled directly. */
+    /** The elemetrik mark's violet, sampled directly. The SHIPPED fill is
+     *  `#6835ff` — tuned, see `ELEMETRIK_TUNING`. */
     primary: "#6832FF",
-    /** Shared neutral slate — identical to think's. */
+    /** Shared neutral slate — identical to think's. The SHIPPED secondary is
+     *  aubergine — tuned, see `ELEMETRIK_TUNING`. */
     secondary: "#64748B",
     /** Chosen, not sampled: the mark is monochrome. Deliberately equal to
      *  `accent-pink` — see the header for why. NOT the lighter `#22D3EE` this
@@ -68,6 +137,9 @@ export const ELEMETRIK: PresetSpec = makePreset({
     danger: "#F43F5E",
     /** Fixed categorical "informational" role — same hex as think's. Not a
      *  brand hue; see `ROLE_NAMES` in `engine/ladder.ts`.
+     *
+     *  2026-11 (tuning): the SHIPPED info is the shared Think Talent blue
+     *  (`#008aff` / `#3aa0ff`) via `SHARED_TUNING`; the seed is unchanged.
      *
      *  2026-11-06: `#37A3FE`, by request, in both presets (the role is one hex
      *  everywhere). Against elemetrik's violet primary it is far apart; its

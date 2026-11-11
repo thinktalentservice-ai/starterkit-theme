@@ -69,11 +69,85 @@
  * lime. Only the text and border rungs darken.
  */
 import { makePreset } from "./base";
+import { flatGradient, tune } from "./tuning";
 import type { PresetSpec } from "../engine/spec";
+
+/* HAND-TUNED (2026-11, from the system-owner admin's palette page) — see
+ * `tuning.ts`. Think Talent uses ONE blue for its mark, its button fill and
+ * Info: `#008aff` in light, `#3aa0ff` in dark, with `#0067c7` / `#7cc0ff` as the
+ * words. Secondary is navy (`#0e2a4d`, lifted to `#2b4366` as a dark-scheme
+ * fill so it does not vanish on near-black). Accent is the logo lime, flat.
+ * Where this contradicts the measured narrative above (the `#007acd` floored
+ * fill, the olive light-mode lime), the tuning is what ships. */
+
+
+const THINK_TUNING = tune({
+  both: {
+    "--secondary-solid": "#0e2a4d",
+    "--secondary-solid-hover": "#163a66",
+    "--secondary-on-solid": "#ffffff",
+    "--gradient-secondary": flatGradient("secondary"),
+    "--accent-solid": "#b3d335",
+    "--accent-solid-hover": "#a6c333",
+    "--accent-on-solid": "#ffffff",
+    "--gradient-accent": flatGradient("accent"),
+  },
+  light: {
+    "--primary": "#008aff",
+    "--primary-text": "#0067c7",
+    "--primary-bg": "#e8f4ff",
+    "--primary-border": "rgb(0 138 255 / 0.35)",
+    "--primary-channel": "0 138 255",
+    "--ring": "rgb(0 138 255 / 0.4)",
+    "--primary-solid": "#008aff",
+    "--primary-solid-hover": "#0080ee",
+    "--primary-on-solid": "#ffffff",
+    "--gradient-primary": flatGradient("primary"),
+    "--gradient-avatar": flatGradient("primary"),
+    "--secondary": "#0e2a4d",
+    "--secondary-text": "#0e2a4d",
+    "--secondary-bg": "#eef1f6",
+    "--secondary-border": "rgb(14 42 77 / 0.22)",
+    "--secondary-channel": "14 42 77",
+    "--accent": "#b3d335",
+    "--accent-text": "#4a6600",
+    "--accent-bg": "#edf6d3",
+    "--accent-border": "rgb(179 211 53 / 0.5)",
+    "--accent-channel": "179 211 53",
+  },
+  dark: {
+    "--primary": "#3aa0ff",
+    "--primary-text": "#7cc0ff",
+    "--primary-bg": "rgb(58 160 255 / 0.16)",
+    "--primary-border": "rgb(58 160 255 / 0.4)",
+    "--primary-channel": "58 160 255",
+    "--ring": "rgb(58 160 255 / 0.4)",
+    "--primary-solid": "#3aa0ff",
+    "--primary-solid-hover": "#2b93f5",
+    "--primary-on-solid": "#ffffff",
+    "--gradient-primary": flatGradient("primary"),
+    "--gradient-avatar": flatGradient("primary"),
+    "--secondary": "#7b8fa8",
+    "--secondary-text": "#a3b1c4",
+    "--secondary-bg": "rgb(123 143 168 / 0.16)",
+    "--secondary-border": "rgb(123 143 168 / 0.4)",
+    "--secondary-channel": "123 143 168",
+    /* A navy fill disappears on a near-black page; lift it. */
+    "--secondary-solid": "#2b4366",
+    "--secondary-solid-hover": "#33507a",
+    "--gradient-secondary": flatGradient("secondary"),
+    "--accent": "#b3d335",
+    "--accent-text": "#c8e063",
+    "--accent-bg": "rgb(179 211 53 / 0.14)",
+    "--accent-border": "rgb(179 211 53 / 0.4)",
+    "--accent-channel": "179 211 53",
+  },
+});
 
 export const THINK: PresetSpec = makePreset({
   id: "think",
   name: "Think",
+  overrides: THINK_TUNING,
   seeds: {
     /** The brand owner's chosen primary — `#008AFF` since 2026-11-05 (was
      *  `#37A3FE`). It is also the button fill: `SOLID_WHITE_FLOOR` (2.5) sits
@@ -81,7 +155,8 @@ export const THINK: PresetSpec = makePreset({
      *  primary label is pinned white. The header's `#37A3FE` / `#007acd` numbers
      *  describe the previous seed. */
     primary: "#008AFF",
-    /** Shared neutral slate. See the header for why this is not a logo colour. */
+    /** Shared neutral slate. See the header for why this is not a logo colour.
+     *  The SHIPPED secondary is navy — tuned, see `THINK_TUNING`. */
     secondary: "#64748B",
     /** think's own brand lime — deliberately equal to `accent-green`. See the
      *  header for why that equality is intended, not an oversight. */
@@ -91,6 +166,10 @@ export const THINK: PresetSpec = makePreset({
     danger: "#F43F5E",
     /** Fixed categorical "informational" role — same hex as elemetrik's. Not a
      *  brand hue; see `ROLE_NAMES` in `engine/ladder.ts`.
+     *
+     *  2026-11 (tuning): the SHIPPED info is `#008aff` / `#3aa0ff` — one Think
+     *  Talent blue with primary — via `SHARED_TUNING` in `tuning.ts`. The seed
+     *  stays so the engine's own ledgers keep measuring what they measured.
      *
      *  2026-11-06: `#37A3FE` (was royal `#0058D4`), by request — the lighter
      *  sky blue think's primary used to be. Primary is now `#008AFF`, so the

@@ -29,6 +29,7 @@ import { contrastRatio } from "../color/contrast";
 import { hexToTriple, normalizeHex } from "../color/oklch";
 import { LADDER, LADDER_REFERENCE, LADDER_SEED_INDEX, ROLE_NAMES } from "./ladder";
 import { DEFAULT_PRESET_ID, PRESETS, PRESET_IDS } from "../presets/index";
+import { untuned } from "../presets/tuning";
 import {
   CHANNEL_PAIRS,
   ROOT_TOKEN_NAMES,
@@ -72,7 +73,10 @@ import { serializeBrandCss } from "./serialize";
  * a diff. */
 const PROVENANCE_HISTOGRAM = { derived: 113, structural: 44, fixed: 48 };
 
-const DEFAULT = PRESETS[DEFAULT_PRESET_ID]!;
+/* UNTUNED — the engine's own output. The hand-tuned layer is pinned by
+   `tuning.test.ts`; its shortfalls would fail the "no failures at all" claim
+   below by design. */
+const DEFAULT = untuned(PRESETS[DEFAULT_PRESET_ID]!);
 const brand = resolveBrand(DEFAULT);
 
 describe(`golden — resolveBrand(${DEFAULT_PRESET_ID})`, () => {

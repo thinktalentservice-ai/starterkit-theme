@@ -484,6 +484,31 @@ export function resolveBrand(preset: PresetSpec): ResolvedBrand {
     }
   }
 
+  /* Hand-tuned overrides — see `PresetSpec.overrides`. Validated up front so an
+     unknown token name is an authoring error, never a silently dropped value. */
+  const overrides: Scheme<Readonly<Record<string, string>>> = {
+    dark: preset.overrides?.dark ?? {},
+    light: preset.overrides?.light ?? {},
+  };
+  for (const scheme of SCHEMES) {
+    for (const token of Object.keys(overrides[scheme])) {
+      if (!(token in preset.provenance)) {
+        throw new Error(`${preset.id}: ${scheme} override for unknown token ${token}`);
+      }
+    }
+  }
+  const slotOverride = (scheme: SchemeName, token: string): string | undefined => {
+    const v = overrides[scheme][token];
+    return v === undefined ? undefined : normalizeHex(v);
+  };
+
+  for (const scheme of SCHEMES) {
+    for (const token of neutral[scheme].keys()) {
+      const v = slotOverride(scheme, token);
+      if (v !== undefined) neutral[scheme].set(token, v);
+    }
+  }
+
   const darkSurface = neutral.dark.get("--surface");
   if (darkSurface === undefined) throw new Error("neutral.dark has no --surface");
 
@@ -604,6 +629,16 @@ export function resolveBrand(preset: PresetSpec): ResolvedBrand {
     }
   }
 
+  /* Family overrides land AFTER the search: a tuned mark replaces the searched
+     rung, and every rule below that reads the slot (tint, border, glow,
+     channel) derives from the tuned value. */
+  for (const scheme of SCHEMES) {
+    for (const token of families[scheme].keys()) {
+      const v = slotOverride(scheme, token);
+      if (v !== undefined) families[scheme].set(token, v);
+    }
+  }
+
   const ctx: Context = { preset, ramps, neutral, families };
   const out: Scheme<Map<string, string>> = { dark: new Map(), light: new Map() };
 
@@ -622,6 +657,11 @@ export function resolveBrand(preset: PresetSpec): ResolvedBrand {
     for (const [token, rule] of entries) {
       if ((rule.kind === "channel") !== (pass === 1)) continue;
       for (const scheme of SCHEMES) out[scheme].set(token, resolveRule(token, rule, scheme, ctx));
+    }
+    /* After pass 0 so channels (pass 1) read tuned values; after pass 1 so an
+       explicitly tuned channel wins over the derived one. */
+    for (const scheme of SCHEMES) {
+      for (const [token, value] of Object.entries(overrides[scheme])) out[scheme].set(token, value);
     }
   }
 
