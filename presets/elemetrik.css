@@ -226,6 +226,8 @@
   --fg2: #465267;
   --primary-text: #4b1fcc;
   --primary: #6835ff;
+  --primary-solid: #6835ff;
+  --primary-solid-hover: #5a27ee;
   --primary-bg: #f1ecff;
   --primary-border: rgb(104 53 255 / 0.35);
   --primary-channel: 104 53 255;

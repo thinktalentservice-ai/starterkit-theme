@@ -239,8 +239,10 @@
   --secondary-border: rgb(14 42 77 / 0.22);
   --secondary-channel: 14 42 77;
   --accent-text: #4a6600;
+  --accent: #b3d335;
   --accent-bg: #edf6d3;
   --accent-border: rgb(179 211 53 / 0.5);
+  --accent-channel: 179 211 53;
   --success-text: #2e7d32;
   --success-bg: #edf7ee;
   --success-border: rgb(76 175 80 / 0.35);

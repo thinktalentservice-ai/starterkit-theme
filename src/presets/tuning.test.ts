@@ -6,6 +6,9 @@
  * recorded ones — in both directions, so a fixed shortfall that nobody removed
  * from the ledger fails as loudly as a new one.
  */
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { contrastRatio } from "../color/contrast";
 import { hexToTriple } from "../color/oklch";
@@ -138,6 +141,18 @@ describe("tuning — the hand-tuned palette think and elemetrik ship", () => {
       for (const [t, v] of brand.dark) expect(root.get(t), `${preset.id} dark ${t}`).toBe(v);
       for (const [t, v] of brand.light) expect(light.get(t), `${preset.id} light ${t}`).toBe(v);
     }
+  });
+
+  it("every shipped sheet declares the SAME light-block token set", () => {
+    /* The tuned presets flip different subsets; gen-preset-css.mjs emits the
+       union in every sheet so a host swapping sheets sees one ABI. Reads the
+       checked-in files, so a stale or hand-edited sheet fails here too. */
+    const dir = resolve(dirname(fileURLToPath(import.meta.url)), "../../presets");
+    const sets = TUNED.map(({ preset }) => {
+      const css = readFileSync(join(dir, `${preset.id}.css`), "utf8");
+      return [preset.id, [...readTokens(css, '[data-mui-color-scheme="light"]').keys()].sort()] as const;
+    });
+    for (const [id, names] of sets.slice(1)) expect(names, `${id} vs ${sets[0]![0]}`).toEqual(sets[0]![1]);
   });
 
   it("a tuned mark feeds what derives from it", () => {
