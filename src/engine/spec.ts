@@ -423,6 +423,27 @@ export type PresetSpec = {
   provenance: Readonly<Record<string, Provenance>>;
   duties: readonly Duty[];
   acknowledged: readonly AcknowledgedFailure[];
+  /**
+   * HAND-TUNED VALUES, per scheme, that replace what the engine computed.
+   *
+   * Applied in three places by `resolveBrand`, so a tuned value is visible to
+   * everything downstream of it rather than pasted over the top:
+   *   1. neutral slots, BEFORE the family duty search — a tuned `--background`
+   *      is the backdrop the search measures against;
+   *   2. family slots, AFTER the search — so `--<f>-bg`, `--<f>-border`, the
+   *      glows and `--<f>-channel` are derived from the tuned mark;
+   *   3. every other token, after rules resolve (and again after channels, so an
+   *      explicit channel override wins).
+   *
+   * Duties are still checked against the FINAL values. A tuned value that
+   * misses its duty is reported in `warnings` — tuning moves a colour, it does
+   * not exempt it from measurement.
+   *
+   * Keys must be tokens the preset already emits (an unknown name throws), and
+   * neutral/family slot overrides must be `#rrggbb` because other rules read
+   * them as colours.
+   */
+  overrides?: Partial<Scheme<Readonly<Record<string, string>>>>;
 };
 
 export type ResolvedBrand = {
