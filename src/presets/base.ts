@@ -29,6 +29,7 @@ import {
   type RoleName,
 } from "../engine/ladder";
 import { normalizeHex } from "../color/oklch";
+import { mergeTuning, SHARED_TUNING, type Tuning } from "./tuning";
 import type {
   ColorRef,
   Duty,
@@ -53,6 +54,9 @@ export type PresetConfig = {
   /** `--radius`; the chip and card radii step off it. */
   radius?: number;
   fonts?: { heading: string; body: string; mono: string };
+  /** Brand-specific hand-tuned values, layered over `SHARED_TUNING`. See
+   *  `PresetSpec.overrides` for how the resolver applies them. */
+  overrides?: Tuning;
 };
 
 const DEFAULT_FONTS = {
@@ -924,6 +928,7 @@ export function makePreset(cfg: PresetConfig): PresetSpec {
        seed cannot meet its duties, the answer is a different seed or a reviewed
        acknowledgement with the number written down — never a lowered `min`. */
     acknowledged: [],
+    overrides: mergeTuning(SHARED_TUNING, cfg.overrides),
   };
 }
 
