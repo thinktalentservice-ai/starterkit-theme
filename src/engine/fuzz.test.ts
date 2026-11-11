@@ -8,6 +8,7 @@
 import fc from "fast-check";
 import { contrastRatio } from "../color/contrast";
 import { PRESETS } from "../presets/index";
+import { untuned } from "../presets/tuning";
 import { SOLID_WHITE_FLOOR } from "./ladder";
 import { resolveBrand } from "./resolve";
 import type { FamilySpec, PresetSpec } from "./spec";
@@ -23,7 +24,10 @@ const hexArb = fc
 const HEX = /^#[0-9a-f]{6}$/i;
 
 /** Same preset, every seed swapped for one client hex. Nothing else moves. */
-function withSeed(preset: PresetSpec, seed: string): PresetSpec {
+function withSeed(tuned: PresetSpec, seed: string): PresetSpec {
+  /* Untuned: a client seed drives the ENGINE, and the hand-tuned think/elemetrik
+     values would pin most tokens and make the fuzz measure nothing. */
+  const preset = untuned(tuned);
   const families: Record<string, FamilySpec> = {};
   for (const [id, family] of Object.entries(preset.families)) {
     families[id] = { ...family, seed };
