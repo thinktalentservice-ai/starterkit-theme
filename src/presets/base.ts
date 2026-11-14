@@ -60,8 +60,8 @@ export type PresetConfig = {
 };
 
 const DEFAULT_FONTS = {
-  heading: "'Plus Jakarta Sans', system-ui, sans-serif",
-  body: "'Plus Jakarta Sans', system-ui, sans-serif",
+  heading: "'Poppins', system-ui, sans-serif",
+  body: "'Poppins', system-ui, sans-serif",
   mono: "'Geist Mono', ui-monospace, monospace",
 } as const;
 
