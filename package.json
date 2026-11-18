@@ -3,6 +3,10 @@
   "version": "1.5.1",
   "description": "The two-brand semantic token engine — a brandable CSS token engine plus a MUI theme. Zero runtime dependencies.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thinktalentservice-ai/starterkit-theme.git"
+  },
   "type": "module",
   "sideEffects": [
     "*.css"
