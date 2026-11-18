@@ -1,0 +1,71 @@
+name: CI
+
+# Builds on every push (any branch) and on every PR into main.
+# Make the "Build" check required on main (branch protection / ruleset) so a PR
+# can only be merged once this build passes.
+# Also callable from other workflows (release.yml reuses it as its build gate).
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      upload-artifact:
+        description: Upload the build output so later jobs can reuse it.
+        type: boolean
+        default: false
+      artifact-name:
+        type: string
+        default: build-output
+      artifact-path:
+        description: Directory the build writes to.
+        type: string
+        default: dist
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: ${{ github.workflow }}-build-${{ github.event_name }}-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name != 'release' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup project
+        id: setup
+        uses: ./.github/actions/setup-project
+
+      # "build" script if package.json has one (pnpm build / npm run build / yarn build),
+      # otherwise a plain `vite build` when the project has a vite config.
+      - name: Build
+        shell: bash
+        env:
+          PM: ${{ steps.setup.outputs.pm }}
+        run: |
+          if node -e "const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));process.exit(p.scripts&&p.scripts.build?0:1)"; then
+            echo "Running: $PM run build"
+            "$PM" run build
+          elif ls vite.config.* >/dev/null 2>&1; then
+            echo "No build script; running: vite build"
+            npx --no-install vite build
+          else
+            echo "::error::No 'build' script in package.json and no vite config found."
+            exit 1
+          fi
+
+      - name: Upload build output
+        if: inputs.upload-artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: ${{ inputs.artifact-path }}
+          if-no-files-found: error
+          retention-days: 7

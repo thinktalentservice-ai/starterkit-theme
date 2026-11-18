@@ -1,0 +1,81 @@
+name: Setup project
+description: >
+  Detects the package manager from the lockfile (pnpm / yarn / npm), installs
+  Node and that package manager, and installs dependencies from the lockfile.
+
+inputs:
+  node-version:
+    description: Node version to use when the repo has no .nvmrc / .node-version file.
+    required: false
+    default: "24"
+  pnpm-version:
+    description: pnpm version to use when package.json has no "packageManager" field.
+    required: false
+    default: "12"
+  install:
+    description: Install dependencies after setting up the toolchain.
+    required: false
+    default: "true"
+
+outputs:
+  pm:
+    description: Detected package manager (pnpm | yarn | npm).
+    value: ${{ steps.detect.outputs.pm }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect package manager
+      id: detect
+      shell: bash
+      run: |
+        if [ -f pnpm-lock.yaml ]; then pm=pnpm
+        elif [ -f yarn.lock ]; then pm=yarn
+        else pm=npm
+        fi
+
+        has_pm_field=$(node -e "const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));process.stdout.write(p.packageManager?'true':'false')")
+
+        node_version_file=""
+        for f in .nvmrc .node-version; do
+          if [ -f "$f" ]; then node_version_file="$f"; break; fi
+        done
+
+        echo "pm=$pm" >> "$GITHUB_OUTPUT"
+        echo "has_pm_field=$has_pm_field" >> "$GITHUB_OUTPUT"
+        echo "node_version_file=$node_version_file" >> "$GITHUB_OUTPUT"
+        echo "Package manager: $pm (packageManager field: $has_pm_field, node version file: ${node_version_file:-none})"
+
+    # pnpm must exist before setup-node so its store can be cached.
+    - name: Setup pnpm (from package.json "packageManager")
+      if: steps.detect.outputs.pm == 'pnpm' && steps.detect.outputs.has_pm_field == 'true'
+      uses: pnpm/action-setup@v6
+
+    - name: Setup pnpm (version ${{ inputs.pnpm-version }})
+      if: steps.detect.outputs.pm == 'pnpm' && steps.detect.outputs.has_pm_field != 'true'
+      uses: pnpm/action-setup@v6
+      with:
+        version: ${{ inputs.pnpm-version }}
+
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ steps.detect.outputs.node_version_file == '' && inputs.node-version || '' }}
+        node-version-file: ${{ steps.detect.outputs.node_version_file }}
+        cache: ${{ steps.detect.outputs.pm }}
+
+    - name: Install dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      run: |
+        case "${{ steps.detect.outputs.pm }}" in
+          pnpm) pnpm install --frozen-lockfile ;;
+          yarn)
+            if [ -f .yarnrc.yml ]; then corepack enable && yarn install --immutable
+            else yarn install --frozen-lockfile
+            fi ;;
+          npm)
+            if [ -f package-lock.json ]; then npm ci
+            else npm install
+            fi ;;
+        esac
