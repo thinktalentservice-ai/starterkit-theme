@@ -142,15 +142,26 @@ describe("createStarterkitTheme", () => {
     // Every MUI text field (TextField outlined/filled/standard, Autocomplete, multiline,
     // Select's input) renders through InputBase, so this one slot is the only place the
     // placeholder size can be fixed for all of them. Without it the input inherits
-    // typography.body1 (15px) and reads bigger than the 14px Bootstrap inputs beside it.
+    // typography.body1 instead of the 12px field size.
     const ib = (theme.components as any).MuiInputBase.styleOverrides;
 
-    it("typed text is 14px, not the 15px body1 it would inherit", () => {
-      expect(ib.root.fontSize).toBe("0.875rem");
+    it("typed text is 12px, not the body1 size it would inherit", () => {
+      expect(ib.root.fontSize).toBe("12px");
     });
 
-    it("::placeholder is pinned to 13px on the input slot", () => {
-      expect(ib.input["&::placeholder"].fontSize).toBe("13px");
+    it("::placeholder is pinned to 12px on the input slot", () => {
+      expect(ib.input["&::placeholder"].fontSize).toBe("12px");
+    });
+
+    it("adornment text is 12px, including its nested Typography", () => {
+      const ia = (theme.components as any).MuiInputAdornment.styleOverrides.root;
+      expect(ia.fontSize).toBe("12px");
+      expect(ia["& .MuiTypography-root"].fontSize).toBe("12px");
+    });
+
+    it("helper text is 11px / 400", () => {
+      const ht = (theme.components as any).MuiFormHelperText.styleOverrides.root;
+      expect(ht).toEqual({ fontSize: "11px", fontWeight: 400 });
     });
 
 

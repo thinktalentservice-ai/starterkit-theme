@@ -287,27 +287,30 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
       fontFamily: "'Poppins', system-ui, sans-serif",
       h1: {
         fontFamily: "'Poppins', system-ui, sans-serif",
-        fontWeight: 800,
+        fontWeight: 600,
         fontSize: "2.125rem",
         letterSpacing: "-0.5px",
       },
       h2: {
         fontFamily: "'Poppins', system-ui, sans-serif",
-        fontWeight: 800,
+        fontWeight: 600,
         fontSize: "1.75rem",
         letterSpacing: "-0.4px",
       },
       h3: {
         fontFamily: "'Poppins', system-ui, sans-serif",
-        fontWeight: 700,
+        fontWeight: 600,
         fontSize: "1.375rem",
         letterSpacing: "-0.3px",
       },
-      h4: { fontFamily: "'Poppins', system-ui, sans-serif", fontWeight: 700, fontSize: "1.125rem" },
+      h4: { fontFamily: "'Poppins', system-ui, sans-serif", fontWeight: 600, fontSize: "1.125rem" },
       h5: { fontFamily: "'Poppins', system-ui, sans-serif", fontWeight: 600, fontSize: "1rem" },
       h6: { fontFamily: "'Poppins', system-ui, sans-serif", fontWeight: 600, fontSize: "0.875rem" },
-      body1: { fontSize: "0.9375rem", lineHeight: 1.6 },
-      body2: { fontSize: "0.8125rem" },
+      // Body base is 13px, body2 one step under it at 12px. Poppins sets large and
+      // heavy for its nominal size, so the 15px/13px pair this used to ship read a
+      // size too loud next to the 12px secondary text (footer, inputs, pagination).
+      body1: { fontSize: "0.8125rem", lineHeight: 1.6 },
+      body2: { fontSize: "0.75rem" },
       caption: {
         fontFamily: "'Poppins', system-ui, sans-serif",
         fontWeight: 500,
@@ -321,7 +324,7 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
       },
       overline: {
         fontFamily: "'Poppins', system-ui, sans-serif",
-        fontWeight: 700,
+        fontWeight: 600,
         fontSize: "0.625rem",
         letterSpacing: "0.12em",
       },
@@ -422,7 +425,7 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
             const f = ownerState.variant === "filled" ? familyOf(ownerState.color) : undefined;
             return {
               borderRadius: "var(--radius-chip)",
-              fontWeight: 700,
+              fontWeight: 600,
               fontSize: "10px",
               textTransform: "uppercase",
               letterSpacing: "0.08em",
@@ -439,15 +442,27 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
           },
         },
       },
-      // InputBase inherits typography.body1 (15px), which made the typed text and the
-      // ::placeholder read bigger than the 14px Bootstrap inputs beside them. The root
-      // size fixes the typed text; the placeholder is pinned a step smaller (13px)
-      // instead of inheriting, so it reads as a hint rather than as entered content.
-      // Opacity/colour are left to MUI.
+      // Field typography is 12px across the board — typed text, ::placeholder and
+      // adornment text — with helper text one step under at 11px/400. The root size
+      // reaches .MuiInputBase-input through its `font: inherit`; the placeholder is
+      // pinned explicitly because browsers do not inherit it reliably. Opacity/colour
+      // are left to MUI.
       MuiInputBase: {
         styleOverrides: {
-          root: { fontSize: "0.875rem" },
-          input: { "&::placeholder": { fontSize: "13px" } },
+          root: { fontSize: "12px" },
+          input: { "&::placeholder": { fontSize: "12px" } },
+        },
+      },
+      // An adornment's text renders through a nested <Typography> (body1), so sizing
+      // the root alone leaves the "$" / "kg" at body1 size beside 12px typed text.
+      MuiInputAdornment: {
+        styleOverrides: {
+          root: { fontSize: "12px", "& .MuiTypography-root": { fontSize: "12px" } },
+        },
+      },
+      MuiFormHelperText: {
+        styleOverrides: {
+          root: { fontSize: "11px", fontWeight: 400 },
         },
       },
       MuiOutlinedInput: {

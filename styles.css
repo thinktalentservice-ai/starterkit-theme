@@ -13,6 +13,10 @@ body {
   font-family: var(--font-body);
 }
 
+/* Bootstrap/reactstrap modal title. Bootstrap sizes it through the <h5> it sits on;
+   the class selector outranks that type selector whatever the load order. */
+.modal-title { font-size: 15px; }
+
 /* ── Keyframes ────────────────────────────────────────────────────────────── */
 @keyframes ib-fade-up {
   from { opacity: 0; transform: translateY(18px); }
@@ -243,7 +247,7 @@ body {
   border-radius: var(--radius-chip);
   font-family: var(--font-body);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.08em;
