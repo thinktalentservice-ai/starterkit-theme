@@ -128,6 +128,20 @@ import { BrandProvider, ThemeToggle, useConcreteTheme } from "@devopsnext/starte
 </BrandProvider>;
 ```
 
+### Sidebar rail (1.7.0)
+
+The sidebar rail is **dark in both schemes**: `--sidebar-bg` is `#0d0f1a` (the dark `--background`) in dark *and* light, so it is no longer in the light block. Because the scheme's own `--fg1`/`--fg2`/`--border`/`--hover-overlay` turn dark in light mode, the rail has its own scheme-invariant ink:
+
+| Token | Value | Use |
+|---|---|---|
+| `--sidebar-fg1` | `#ffffff` | active / hovered nav label |
+| `--sidebar-fg2` | `#ffffff` | resting nav label |
+| `--sidebar-fg-muted` | `rgb(255 255 255 / 0.6)` | section captions |
+| `--sidebar-border` | `rgb(255 255 255 / 0.12)` | rail hairlines |
+| `--sidebar-hover-overlay` | `rgb(255 255 255 / 0.08)` | row hover veil |
+
+`@devopsnext/starterkit-layout` reads these on `.il-sidebar-area`. A brand that wants a light rail must override `--sidebar-bg` **and** the `--sidebar-fg*` set together — `--sidebar-fg1`/`--sidebar-fg2` carry a 4.5:1 `report` duty on `--sidebar-bg`, so forgetting the ink lands in `warnings`. MUI `Drawer` paper now takes `color: var(--sidebar-fg1)`.
+
 ## How it works
 
 A colour family is a ramp plus two windows into it. Ramp steps are OKLCH offsets (lightness delta, chroma ratio, hue delta) from a client-supplied seed — never absolute hexes — so changing one seed moves the whole family and keeps its shape. The light scheme is not a second palette to author: it's the same ramp read one step deeper, with per-token overrides only where a WCAG contrast duty forces a different step. Hand-tuned overrides (see [Presets](#presets)) are applied per scheme and re-measured. See `src/engine/spec.ts` for the full model.

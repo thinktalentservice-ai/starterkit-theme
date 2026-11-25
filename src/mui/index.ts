@@ -478,7 +478,11 @@ export function createStarterkitTheme(options: CreateStarterkitThemeOptions = {}
       },
       MuiDrawer: {
         styleOverrides: {
-          paper: { backgroundImage: "none", backgroundColor: "var(--sidebar-bg)" },
+          // `--sidebar-bg` is dark in BOTH schemes (1.7.0), so the paper carries the
+          // rail's own ink; inheriting the light scheme's dark `text.primary` would
+          // put dark text on a dark drawer. Children that set `text.secondary`
+          // explicitly (ListItemText secondary) still need their own override.
+          paper: { backgroundImage: "none", backgroundColor: "var(--sidebar-bg)", color: "var(--sidebar-fg1)" },
         },
       },
       MuiAppBar: {

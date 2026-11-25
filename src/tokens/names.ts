@@ -10,9 +10,9 @@ export const TOKENS_FIXTURE = "presets/think.css";
 /** Content hash over the token NAME set, so it changes when the contract
  *  changes — not on every rebuild. Emitted into every sheet as
  *  `--tokens-version`, and computed here rather than read back from one. */
-export const TOKENS_VERSION = "9451b3ea404a";
+export const TOKENS_VERSION = "ddc9022b81f7";
 
-/** Every custom property a brand must define on `:root`. 205 names. */
+/** Every custom property a brand must define on `:root`. 210 names. */
 export const ROOT_TOKEN_NAMES = [
   "--void",
   "--background",
@@ -114,6 +114,11 @@ export const ROOT_TOKEN_NAMES = [
   "--ring",
   "--hover-overlay",
   "--topbar-bg",
+  "--sidebar-fg1",
+  "--sidebar-fg2",
+  "--sidebar-fg-muted",
+  "--sidebar-border",
+  "--sidebar-hover-overlay",
   "--radius",
   "--radius-chip",
   "--radius-card",
@@ -221,14 +226,13 @@ export const ROOT_TOKEN_NAMES = [
   "--white-channel",
 ] as const;
 
-/** Custom properties the light scheme declares. 100 names,
- *  of which 100 actually differ from their `:root` value. */
+/** Custom properties the light scheme declares. 99 names,
+ *  of which 99 actually differ from their `:root` value. */
 export const LIGHT_TOKEN_NAMES = [
   "--void",
   "--background",
   "--surface",
   "--surface-elevated",
-  "--sidebar-bg",
   "--card",
   "--fg1",
   "--fg2",
@@ -332,7 +336,6 @@ export const LIGHT_FLIPPED_TOKEN_NAMES = [
   "--background",
   "--surface",
   "--surface-elevated",
-  "--sidebar-bg",
   "--card",
   "--fg1",
   "--fg2",

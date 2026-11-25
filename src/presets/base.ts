@@ -135,7 +135,10 @@ const NEUTRAL_LIGHT = neutralFrom("#f6f7fb", {
   "--background": "#f6f7fb",
   "--surface": "#ffffff",
   "--surface-elevated": "#f0f1f7",
-  "--sidebar-bg": "#eef0f8",
+  /* NOT a light surface: the rail stays dark in the light scheme, carrying the
+     scheme-invariant `--sidebar-fg*` ink. Set here, not only in tuning.ts, so the
+     untuned engine output meets the sidebar duties too. */
+  "--sidebar-bg": "#0d0f1a",
   "--card": "#ffffff",
   "--fg1": "#1a1d2e",
   "--fg2": "#5a6080",
@@ -427,6 +430,21 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
     "--btn-ghost-bg": veil(0.05, 0.03),
     "--btn-ghost-bg-hover": veil(0.1, 0.06),
     "--hover-overlay": veil(0.06, 0.04),
+
+    /* Sidebar ink — the rail's own text, border and hover veil.
+       The rail is painted `--sidebar-bg`, which the shared tuning holds DARK in
+       both schemes (`tuning.ts`), so the scheme's own `--fg1/--fg2/--border/
+       --hover-overlay` (dark ink in light) are unreadable on it. These are the
+       rail's ink, white-based and scheme-invariant, read by
+       @devopsnext/starterkit-layout's `.il-sidebar-area` aliases. A brand that
+       paints a light rail must override these alongside `--sidebar-bg` — the
+       `sidebarDuties` below report the miss if it does not. Literal `rgb()`, not
+       `rgb(var(--white-channel) …)`: a sheet value must stand on its own. */
+    "--sidebar-fg1": literal("#ffffff"),
+    "--sidebar-fg2": literal("#ffffff"),
+    "--sidebar-fg-muted": literal("rgb(255 255 255 / 0.6)"),
+    "--sidebar-border": literal("rgb(255 255 255 / 0.12)"),
+    "--sidebar-hover-overlay": literal("rgb(255 255 255 / 0.08)"),
 
     /* The focus ring holds ONE colour across both schemes. A ring that changes
        hue with the scheme reads as a different affordance, and this is the token
@@ -797,6 +815,20 @@ const dutiesFor = (f: RoleName): Duty[] => [
 /* Named rather than inlined four times, so the claim above is stated once and a
    change to the neutral ramp has one place to be reflected. */
 
+/* The rail's ink against the rail, in both schemes. `"report"`, not `"search"`:
+   the ink is a literal, not a ramp slot, so there is nothing to walk — a miss
+   (a brand that lightens `--sidebar-bg` and forgets the ink) lands in `warnings`.
+   Only the opaque tokens are measured; `-muted` is an alpha veil and the
+   contrast maths takes opaque colours. */
+const sidebarDuties: Duty[] = (["--sidebar-fg1", "--sidebar-fg2"] as const).map((token) => ({
+  token,
+  against: "--sidebar-bg",
+  min: 4.5,
+  scheme: "both",
+  because: `WCAG 1.4.3 — ${token} is the sidebar nav label colour, drawn on --sidebar-bg.`,
+  enforce: "report",
+}));
+
 
 /* ── Provenance ───────────────────────────────────────────────────────────── */
 
@@ -808,7 +840,8 @@ const STRUCTURAL_EXACT = new Set([
   "--glass-bg", "--glass-bg-card", "--glass-dark-bg", "--input", "--input-border",
   "--input-border-hover", "--input-disabled-bg", "--input-disabled-border",
   "--btn-outline-border", "--btn-outline-border-hover", "--btn-ghost-bg",
-  "--btn-ghost-bg-hover", "--hover-overlay", "--shadow-card", "--shadow-elevated",
+  "--btn-ghost-bg-hover", "--hover-overlay", "--sidebar-fg1", "--sidebar-fg2",
+  "--sidebar-fg-muted", "--sidebar-border", "--sidebar-hover-overlay", "--shadow-card", "--shadow-elevated",
   "--shadow-dropdown", "--dd-hover-shadow", "--font-heading", "--font-body",
   "--font-mono", "--ease-entrance", "--radius", "--radius-chip", "--radius-card",
   "--radius-pill", "--gradient-avatar", "--gradient-avatar-2", "--gradient-avatar-3",
@@ -874,6 +907,8 @@ function sheetOrder(
     "--btn-outline-border", "--btn-outline-border-hover",
     "--btn-ghost-bg", "--btn-ghost-bg-hover",
     "--ring", "--hover-overlay", "--topbar-bg",
+    "--sidebar-fg1", "--sidebar-fg2", "--sidebar-fg-muted",
+    "--sidebar-border", "--sidebar-hover-overlay",
     "--radius", "--radius-chip", "--radius-card", "--radius-pill",
     "--shadow-card", "--shadow-card-hover", "--shadow-elevated", "--shadow-dropdown",
   );
@@ -922,7 +957,7 @@ export function makePreset(cfg: PresetConfig): PresetSpec {
     neutral: { dark: NEUTRAL_DARK, light: NEUTRAL_LIGHT },
     tokens,
     provenance: Object.fromEntries(allNames.map((n) => [n, classify(n)])),
-    duties: ROLE_NAMES.flatMap(dutiesFor),
+    duties: [...ROLE_NAMES.flatMap(dutiesFor), ...sidebarDuties],
     /* Empty, and it is meant to stay empty. Every entry here is a measured
        defect the catalogue ships knowingly; the previous one carried four. If a
        seed cannot meet its duties, the answer is a different seed or a reviewed

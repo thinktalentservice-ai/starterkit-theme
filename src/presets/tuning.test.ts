@@ -169,3 +169,26 @@ describe("tuning — the hand-tuned palette think and elemetrik ship", () => {
     expect(() => resolveBrand({ ...base, overrides: { light: { "--primary": "rgb(0 0 0)" } } })).toThrow();
   });
 });
+
+/* 1.7.0 — the sidebar rail. Dark in BOTH schemes, one hex, with its own
+ * scheme-invariant ink. Moved here from the system-owner admin's host override
+ * sheet (`colors_and_type.css`), which painted the light rail with a hand-copied
+ * channel of the dark `--background` that no gate watched. */
+describe("tuned sidebar rail", () => {
+  for (const { preset, brand } of TUNED) {
+    it(`${preset.id}: rail = dark --background in both schemes, white ink clears 4.5:1`, () => {
+      for (const scheme of SCHEMES) {
+        const m = brand[scheme];
+        expect(m.get("--sidebar-bg"), `${preset.id} ${scheme}`).toBe("#0d0f1a");
+        expect(m.get("--sidebar-fg1")).toBe("#ffffff");
+        expect(m.get("--sidebar-fg2")).toBe("#ffffff");
+        expect(m.get("--sidebar-fg-muted")).toBe("rgb(255 255 255 / 0.6)");
+        expect(m.get("--sidebar-border")).toBe("rgb(255 255 255 / 0.12)");
+        expect(m.get("--sidebar-hover-overlay")).toBe("rgb(255 255 255 / 0.08)");
+        expect(contrastRatio("#ffffff", m.get("--sidebar-bg")!)).toBeGreaterThanOrEqual(4.5);
+      }
+      expect(brand.dark.get("--sidebar-bg")).toBe(brand.dark.get("--background"));
+      expect(brand.warnings.filter((w) => w.token.startsWith("--sidebar-"))).toEqual([]);
+    });
+  }
+});
