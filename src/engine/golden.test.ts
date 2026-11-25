@@ -69,9 +69,13 @@ import { serializeBrandCss } from "./serialize";
  * i.e. +2 structural / +2 derived. 30+2 = 32 derived, 3+2 = 5 structural, 0
  * fixed — none of the new tokens are categorical/status tokens.
  *
+ * 1.7.0 added the five sidebar ink tokens (`--sidebar-fg1/-fg2/-fg-muted/-border/
+ * -hover-overlay`): scheme-invariant literals, seed-independent, classified
+ * structural like `--hover-overlay`. 44+5 = 49 structural.
+ *
  * Changing any of these three numbers is a design decision and must show up in
  * a diff. */
-const PROVENANCE_HISTOGRAM = { derived: 113, structural: 44, fixed: 48 };
+const PROVENANCE_HISTOGRAM = { derived: 113, structural: 49, fixed: 48 };
 
 /* UNTUNED — the engine's own output. The hand-tuned layer is pinned by
    `tuning.test.ts`; its shortfalls would fail the "no failures at all" claim

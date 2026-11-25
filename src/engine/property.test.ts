@@ -861,12 +861,23 @@ describe("property — invariants across every preset, both schemes", () => {
        the middle backdrop in dark and the best one in light — which shipped an
        outline border at 2.96:1 while its duty reported PASS at 3.17:1.
        So: mark + text, each per scheme, all searching. */
-    expect(first!.preset.duties).toHaveLength(ROLE_NAMES.length * 4);
-    expect(first!.preset.duties.every((d) => d.enforce === "search")).toBe(true);
-    expect(first!.preset.duties.every((d) => d.scheme !== "both")).toBe(true);
-    for (const d of first!.preset.duties) {
+    const isSidebar = (d: { token: string }) => d.token.startsWith("--sidebar-");
+    const familyDuties = first!.preset.duties.filter((d) => !isSidebar(d));
+    const sidebarDuties = first!.preset.duties.filter(isSidebar);
+    expect(familyDuties).toHaveLength(ROLE_NAMES.length * 4);
+    expect(familyDuties.every((d) => d.enforce === "search")).toBe(true);
+    expect(familyDuties.every((d) => d.scheme !== "both")).toBe(true);
+    for (const d of familyDuties) {
       expect(d.against, `${d.token}|${d.scheme}`).toBe(d.scheme === "dark" ? "--card" : "--background");
     }
+    /* 1.7.0: the rail's own ink, measured on the rail. The sidebar is the ONE
+       surface whose backdrop does not flip with the scheme, so here — and only
+       here — "both" is the honest scheme. `report`: the ink is a literal, there
+       is no ramp to search. */
+    expect(sidebarDuties.map((d) => `${d.token}|${d.against}|${d.min}|${d.scheme}|${d.enforce}`).sort()).toEqual([
+      "--sidebar-fg1|--sidebar-bg|4.5|both|report",
+      "--sidebar-fg2|--sidebar-bg|4.5|both|report",
+    ]);
   });
 
   it("12. both presets emit the IDENTICAL token name set, in both schemes", () => {

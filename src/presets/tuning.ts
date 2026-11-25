@@ -85,7 +85,9 @@ export const SHARED_TUNING = tune({
     "--background": "#ffffff",
     "--surface": "#ffffff",
     "--surface-elevated": "#f7f8fa",
-    "--sidebar-bg": "#ffffff",
+    /* The rail stays DARK on the white plane — same hex as `dark` below. Its ink
+       is the scheme-invariant `--sidebar-fg*` set in base.ts, not `--fg1/--fg2`. */
+    "--sidebar-bg": "#0d0f1a",
     "--card": "#ffffff",
     "--topbar-bg": "#ffffff",
     "--fg1": "#0e1525",
@@ -155,6 +157,11 @@ export const SHARED_TUNING = tune({
   },
 
   dark: {
+    /* Sidebar rail = the dark page background (#0d0f1a), not the engine's
+       darker #09091a, in BOTH schemes — one rail colour, whatever the scheme.
+       Moved here from the system-owner admin's host override sheet. */
+    "--sidebar-bg": "#0d0f1a",
+
     "--accent-green": "#b3d335",
     "--accent-green-text": "#c8e063",
     "--accent-green-bg": "rgb(179 211 53 / 0.14)",
