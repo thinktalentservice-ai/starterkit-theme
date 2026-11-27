@@ -90,8 +90,8 @@ export const SHARED_TUNING = tune({
     "--sidebar-bg": "#0d0f1a",
     "--card": "#ffffff",
     "--topbar-bg": "#ffffff",
-    "--fg1": "#0e1525",
-    "--fg2": "#465267",
+    "--fg1": "#2a3140",
+    "--fg2": "#5a6474",
     "--fg-muted": "#5f6b7e",
     "--fg-muted-min": "#6b7689",
     "--fg-disabled": "#a3abb8",
@@ -106,8 +106,8 @@ export const SHARED_TUNING = tune({
     "--btn-ghost-bg": "rgb(14 21 37 / 0.04)",
     "--btn-ghost-bg-hover": "rgb(14 21 37 / 0.07)",
     "--hover-overlay": "rgb(14 21 37 / 0.04)",
-    "--fg1-channel": "14 21 37",
-    "--fg2-channel": "70 82 103",
+    "--fg1-channel": "42 49 64",
+    "--fg2-channel": "90 100 116",
 
     /* Categorical + status marks, text and tints. */
     "--accent-green": "#b3d335",

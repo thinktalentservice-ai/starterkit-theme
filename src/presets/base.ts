@@ -413,6 +413,14 @@ function sharedRules(fonts: { heading: string; body: string; mono: string }): Re
     "--fg-muted": veil(0.45, 0.45),
     "--fg-muted-min": veil(0.38, 0.38),
     "--fg-disabled": veil(0.28, 0.28),
+    /* 1.8.0 — data-table ink and a lighter secondary ink. Dark keeps what those
+       surfaces already render (`--fg1`, and the `--fg-muted` veil); only light
+       differs. The light greys are a design call: `#7a8390` on white and
+       `#6b7482` on the tinted table header both measure below 4.5:1 at small
+       sizes. */
+    "--table-head-fg": literal("var(--fg1)", "#6b7482"),
+    "--table-cell-fg": literal("var(--fg1)", "#3d4554"),
+    "--fg-subtle": { ...veil(0.45, 0.45), lightLiteral: "#7a8390" } as TokenRule,
     "--border": veil(0.08, 0.14),
     "--glass-border": veil(0.09, 0.14),
     "--glass-bg": veil(0.035, 0.72, "white"),
@@ -836,7 +844,8 @@ const sidebarDuties: Duty[] = (["--sidebar-fg1", "--sidebar-fg2"] as const).map(
 const FIXED_PREFIXES = ["--dd-", "--status-"];
 const FIXED_EXACT = new Set(["--white-channel", "--black-channel"]);
 const STRUCTURAL_EXACT = new Set([
-  "--fg-muted", "--fg-muted-min", "--fg-disabled", "--border", "--glass-border",
+  "--fg-muted", "--fg-muted-min", "--fg-disabled", "--table-head-fg",
+  "--table-cell-fg", "--fg-subtle", "--border", "--glass-border",
   "--glass-bg", "--glass-bg-card", "--glass-dark-bg", "--input", "--input-border",
   "--input-border-hover", "--input-disabled-bg", "--input-disabled-border",
   "--btn-outline-border", "--btn-outline-border-hover", "--btn-ghost-bg",
@@ -901,6 +910,7 @@ function sheetOrder(
   }
   push(
     "--fg-muted", "--fg-muted-min", "--fg-disabled",
+    "--table-head-fg", "--table-cell-fg", "--fg-subtle",
     "--border", "--glass-border", "--glass-bg", "--glass-bg-card", "--glass-dark-bg",
     "--input", "--input-border", "--input-border-hover",
     "--input-disabled-bg", "--input-disabled-border",

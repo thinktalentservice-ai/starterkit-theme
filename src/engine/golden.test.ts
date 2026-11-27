@@ -73,9 +73,12 @@ import { serializeBrandCss } from "./serialize";
  * -hover-overlay`): scheme-invariant literals, seed-independent, classified
  * structural like `--hover-overlay`. 44+5 = 49 structural.
  *
+ * 1.8.0 added `--table-head-fg`, `--table-cell-fg` and `--fg-subtle`: neutral
+ * ink, seed-independent, structural like `--fg-muted`. 49+3 = 52 structural.
+ *
  * Changing any of these three numbers is a design decision and must show up in
  * a diff. */
-const PROVENANCE_HISTOGRAM = { derived: 113, structural: 49, fixed: 48 };
+const PROVENANCE_HISTOGRAM = { derived: 113, structural: 52, fixed: 48 };
 
 /* UNTUNED — the engine's own output. The hand-tuned layer is pinned by
    `tuning.test.ts`; its shortfalls would fail the "no failures at all" claim

@@ -1,6 +1,6 @@
 {
   "name": "@devopsnext/starterkit-theme",
-  "version": "1.7.0",
+  "version": "1.9.1",
   "description": "The two-brand semantic token engine — a brandable CSS token engine plus a MUI theme. Zero runtime dependencies.",
   "license": "MIT",
   "repository": {
@@ -15,6 +15,7 @@
     "dist",
     "styles.css",
     "presets",
+    "admin.css",
     "bootstrap-bridge.css",
     "schema.json",
     "README.md"
@@ -44,6 +45,7 @@
       "require": "./dist/react/index.cjs"
     },
     "./styles.css": "./styles.css",
+    "./admin.css": "./admin.css",
     "./bootstrap-bridge.css": "./bootstrap-bridge.css",
     "./presets/*.css": "./presets/*.css",
     "./schema.json": "./schema.json"

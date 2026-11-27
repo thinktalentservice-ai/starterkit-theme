@@ -1,0 +1,83 @@
+/* Admin density sheet — OPT-IN. Nothing else in this package imports it.
+ *
+ * Written for nextv3-system-owner2-react: `.pk-*`, `.cl-*`, `.sf__*` and
+ * `.footermain` are that app's own class names. A host that does not import this
+ * file is unaffected by it.
+ *
+ * WHY EVERY SELECTOR STARTS WITH `:root` (or carries two classes). The rules it
+ * replaces are single-class: the app's SCSS, MUI's Emotion styles and
+ * starterkit-table's `styles.css`, and the last two load AFTER this file. One
+ * extra step of specificity wins regardless of order. Do not "simplify" it away.
+ *
+ * Sizes apply in both schemes. Colours read tokens from the preset sheet, whose
+ * dark values keep the dark scheme as it was. */
+
+/* ── Buttons (default size) ───────────────────────────────────────────────── */
+/* min-height alone cannot reach 34px: the 10px block padding forces ~36px. */
+:root .ib-btn[data-size="md"] {
+  min-height: 34px;
+  padding-block: 7px;
+  font-size: 12px;
+}
+
+/* ── Data table (starterkit-table over material-react-table) ──────────────── */
+.skt-table .MuiTableCell-head {
+  height: 36px;
+  color: var(--table-head-fg);
+}
+
+/* The wrapper is itself a MUI Box, so a host-wide `.MuiBox-root` font-size
+   reaches it directly; setting the size on the cell would not. */
+.skt-table .Mui-TableHeadCell-Content-Wrapper {
+  font-size: 11px;
+}
+
+/* Row height is content + padding over the table's per-density floor, so only
+   the padding is set. The detail-panel cell is excluded: it must stay at zero
+   padding while collapsed. This also applies to compact and spacious density. */
+.skt-table .MuiTableCell-body:not(.Mui-TableBodyCell-DetailPanel) {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  color: var(--table-cell-fg);
+}
+
+:root .skt-count,
+:root .skt-rpp,
+:root .skt-pager,
+:root .skt-action {
+  font-size: 12px;
+}
+
+/* ── Page header ──────────────────────────────────────────────────────────── */
+:root .pk-title {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+:root .pk-fact { font-size: 12px; }
+:root .pk-fact b { font-size: 13px; font-weight: 600; }
+:root .pk-share__key { font-size: 12px; }
+:root .pk-tag { font-size: 11px; }
+:root .pk-action { font-size: 12px; }
+:root .sf__label { font-size: 12px; }
+
+/* ── Client list cells ────────────────────────────────────────────────────── */
+:root .cl-id { font-size: 11px; color: var(--fg-subtle); }
+:root .cl-acct__name { font-size: 13px; font-weight: 500; }
+:root .cl-acct__domain { font-size: 11px; }
+/* `!important` because system-owner2 ships `.MuiPaper-root button` at 12px
+   with `!important`, which otherwise wins on this button. */
+:root .cl-more { font-size: 11px !important; }
+:root .cl-date__main { font-size: 12px; }
+:root .cl-date__rel { color: var(--fg-subtle); }
+:root .cl-admins__text { font-size: 12px; color: var(--table-cell-fg); }
+
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+:root .footermain { font-size: 12px; }
+
+/* ── Dialog and form fields ───────────────────────────────────────────────── */
+/* `!important` only because the rule being replaced carries it. */
+:root .modal-title { font-size: 15px !important; }
+
+:root .MuiInputLabel-root { font-size: 12px; }
+:root .MuiFormHelperText-root { margin-top: 2px; }
