@@ -10,9 +10,9 @@ export const TOKENS_FIXTURE = "presets/think.css";
 /** Content hash over the token NAME set, so it changes when the contract
  *  changes — not on every rebuild. Emitted into every sheet as
  *  `--tokens-version`, and computed here rather than read back from one. */
-export const TOKENS_VERSION = "ddc9022b81f7";
+export const TOKENS_VERSION = "b21d1116dab7";
 
-/** Every custom property a brand must define on `:root`. 210 names. */
+/** Every custom property a brand must define on `:root`. 213 names. */
 export const ROOT_TOKEN_NAMES = [
   "--void",
   "--background",
@@ -97,6 +97,9 @@ export const ROOT_TOKEN_NAMES = [
   "--fg-muted",
   "--fg-muted-min",
   "--fg-disabled",
+  "--table-head-fg",
+  "--table-cell-fg",
+  "--fg-subtle",
   "--border",
   "--glass-border",
   "--glass-bg",
@@ -226,8 +229,8 @@ export const ROOT_TOKEN_NAMES = [
   "--white-channel",
 ] as const;
 
-/** Custom properties the light scheme declares. 99 names,
- *  of which 99 actually differ from their `:root` value. */
+/** Custom properties the light scheme declares. 102 names,
+ *  of which 102 actually differ from their `:root` value. */
 export const LIGHT_TOKEN_NAMES = [
   "--void",
   "--background",
@@ -281,6 +284,9 @@ export const LIGHT_TOKEN_NAMES = [
   "--fg-muted",
   "--fg-muted-min",
   "--fg-disabled",
+  "--table-head-fg",
+  "--table-cell-fg",
+  "--fg-subtle",
   "--border",
   "--glass-border",
   "--glass-bg",
@@ -384,6 +390,9 @@ export const LIGHT_FLIPPED_TOKEN_NAMES = [
   "--fg-muted",
   "--fg-muted-min",
   "--fg-disabled",
+  "--table-head-fg",
+  "--table-cell-fg",
+  "--fg-subtle",
   "--border",
   "--glass-border",
   "--glass-bg",

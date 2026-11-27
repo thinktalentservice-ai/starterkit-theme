@@ -25,6 +25,7 @@ Requires Node 18 or later.
 | `@devopsnext/starterkit-theme/styles.css` | Brand-independent structural CSS: reset, keyframes, animation/glow utilities, card overrides | Any CSS pipeline |
 | `@devopsnext/starterkit-theme/presets/*.css` | Pre-built token sheet for each preset (`think.css`, `elemetrik.css`) | Any CSS pipeline |
 | `@devopsnext/starterkit-theme/bootstrap-bridge.css` | Maps Bootstrap 5.3's `--bs-*` and component-scoped variables onto the token set | Any CSS pipeline |
+| `@devopsnext/starterkit-theme/admin.css` | Opt-in admin density overrides (table, buttons, page header, client list, dialog fields). Nothing else imports it | Any CSS pipeline, after a preset sheet |
 | `@devopsnext/starterkit-theme/schema.json` | JSON Schema for the tenant-facing brand document | Validation tooling |
 
 ## Presets

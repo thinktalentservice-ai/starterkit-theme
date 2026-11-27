@@ -6,7 +6,7 @@
  * if used) — this file defines brand tokens, it does not define structure. */
 
 :root {
-  --tokens-version: "ddc9022b81f7";
+  --tokens-version: "b21d1116dab7";
   --tokens-brand: "think";
   --void: #07080f;
   --background: #0d0f1a;
@@ -91,6 +91,9 @@
   --fg-muted: rgba(255, 255, 255, 0.45);
   --fg-muted-min: rgba(255, 255, 255, 0.38);
   --fg-disabled: rgba(255, 255, 255, 0.28);
+  --table-head-fg: var(--fg1);
+  --table-cell-fg: var(--fg1);
+  --fg-subtle: rgba(255, 255, 255, 0.45);
   --border: rgba(255, 255, 255, 0.08);
   --glass-border: rgba(255, 255, 255, 0.09);
   --glass-bg: rgba(255, 255, 255, 0.035);
@@ -226,8 +229,8 @@
   --surface: #ffffff;
   --surface-elevated: #f7f8fa;
   --card: #ffffff;
-  --fg1: #0e1525;
-  --fg2: #465267;
+  --fg1: #2a3140;
+  --fg2: #5a6474;
   --primary-text: #0067c7;
   --primary: #008aff;
   --primary-solid: #008aff;
@@ -273,6 +276,9 @@
   --fg-muted: #5f6b7e;
   --fg-muted-min: #6b7689;
   --fg-disabled: #a3abb8;
+  --table-head-fg: #6b7482;
+  --table-cell-fg: #3d4554;
+  --fg-subtle: #7a8390;
   --border: #e7e9ee;
   --glass-border: #e7e9ee;
   --glass-bg: #ffffff;
@@ -317,8 +323,8 @@
   --shadow-btn-accent-pink: none;
   --background-channel: 255 255 255;
   --card-channel: 255 255 255;
-  --fg1-channel: 14 21 37;
-  --fg2-channel: 70 82 103;
+  --fg1-channel: 42 49 64;
+  --fg2-channel: 90 100 116;
   --surface-channel: 255 255 255;
   color-scheme: light;
 }
